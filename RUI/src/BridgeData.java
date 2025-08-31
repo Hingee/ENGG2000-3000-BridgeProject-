@@ -22,9 +22,9 @@ public class BridgeData {
     }
 
     public boolean update(String stat) {
-        if(!isValid(stat)) return false;
-
         String[] wordsArray = stat.split("\s+");
+        if(!wordsArray[0].equals("STAT")) return false;
+
         BridgeState = wordsArray[1];
         gateState = wordsArray[2];
         if(wordsArray[3].equals("ON")) isAlarmOn = false;
@@ -33,10 +33,5 @@ public class BridgeData {
         boatLights = wordsArray[5].charAt(0);
 
         return true;
-    }
-
-    private boolean isValid(String stat) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'isValid'");
     }
 }

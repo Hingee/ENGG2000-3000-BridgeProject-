@@ -15,7 +15,7 @@ public class BridgeCon {
     private Queue<String> msgs;
     private ServerSocket serverSocket;
     private Socket clientSocket;
-    private Thread listerThread;
+    private Thread listenerThread;
 
     // Setup input and output streams for communication with the client
     private BufferedReader in;
@@ -36,12 +36,24 @@ public class BridgeCon {
 
         in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
         out = new PrintWriter(clientSocket.getOutputStream(), true);
+        startListening();
     }
 
-    public void recieve() {
-        String msg = in.readLine();
-        System.out.println("Recieved: "+msg+" from port: " + port);
-        msgs.add(msg);
+    private void startListening() {
+        
+
+        listenerThread = new Thread(() -> {
+            try {
+                while (!Thread.currentThread().isInterrupted()) {
+                    String msg = in.readLine();
+                    System.out.println("Recieved: "+msg+" from port: " + port);
+                    msgs.add(msg);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
+        listenerThread.start();
     }
 
     public void send(String msg) throws IOException{
@@ -49,11 +61,12 @@ public class BridgeCon {
         System.out.println("Sent: "+msg+" from port: " + port);
     }
 
-    synchronized public String pollLastMsg() {
+    synchronized public String recieve() {
         return msgs.poll();
     }
 
     public void close() throws IOException{
+        if (listenerThread != null) listenerThread.interrupt();
         clientSocket.close();
         serverSocket.close();
         System.out.println("Closed Connection");
