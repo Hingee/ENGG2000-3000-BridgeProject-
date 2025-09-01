@@ -14,17 +14,22 @@ public class Client {
         Socket socket = new Socket(ip, destPort);
         
         // Setup output stream to send data to the server
-        PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+        // PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
         
         // Setup input stream to receive data from the server
         BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
-        // Send message to the server
-        out.println("Hello from client!");
+        // // Send message to the server
+        // out.println("Hello from client!");
 
-        // Receive response from the server
-        String response = in.readLine();
-        System.out.println("Server says: " + response);
+        while(true) {
+            // Receive response from the server
+            String response = in.readLine();
+            System.out.println("Server says: " + response);
+            if(response.equals("QUIT")) {
+                break;
+            }
+        }
 
         // Close the socket
         socket.close();

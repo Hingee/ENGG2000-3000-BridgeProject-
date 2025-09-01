@@ -3,10 +3,11 @@
 #include <Arduino.h>
 
 // WiFi credentials
-const char* ssid = "ENGG2K3K";
-const char* pass = "YOUR_PASSWORD";
-const char* serverIp = "YOUR_SERVER_IP";
-unsigned int serverPort = 9999;
+#define SSID "ENGG2K3K";
+#define PASS = "YOUR_PASSWORD";
+#define SERVER_IP = "YOUR_SERVER_IP";
+#define SERVER_PORT = 9090;
+
 WiFiClient client;
 
 // Forward declarations
@@ -15,28 +16,38 @@ String receive();
 
 // Task function
 void core0(void *parameter) {
+  Serial.println("Task 0 running on core " + String(xPortGetCoreID()));
+  client.connect(SERVER_IP, SERVER_PORT)
+
+  receive(); //HELO
+  send("OK");
+  receive(); //AUTH
+  send("OK");
+
   while (true) {
-    Serial.println("Task 0 running on core " + String(xPortGetCoreID()));
-    if (!client.connected()) {
-      Serial.print("Connecting to server...");
-      if (client.connect(serverIp, serverPort)) {
-        Serial.println("Connected!");
-      } else {
-        Serial.println("Connection failed.");
-        delay(1000);
-        continue;
-      }
+    receive();
+    send("REDY");
+    String msg = receive();
+
+    if (msg == "STATRQ") {
+      send("STAT . . . ."); //TODO Data
+    }else if (msg == "EXEC") {
+      send("OK");
+      //TODO Execute
+    }else if (msg == "QUIT") {
+      send("QUIT");
+      client.stop();
+      Serial.println("Disconnected from server");
+      vTaskDelete(NULL);
     }
 
-    send("Hello");
-    String msg = receive();
     vTaskDelay(100 / portTICK_PERIOD_MS);
   }
 }
 
 void setup() {
   Serial.begin(115200);
-  WiFi.begin(ssid, pass);
+  WiFi.begin(SSID, PASS);
   while (WiFi.status() != WL_CONNECTED) {
     Serial.println("Connecting to WiFi...");
     delay(500);
@@ -51,18 +62,29 @@ void loop() {
   delay(5000);
 }
 
-void send(String msg) {
-  client.println(msg);
-  Serial.print("Sent: ");
-  Serial.println(msg);
+int send(String msg) {
+  if (client.connected()) {
+    client.println(msg);
+    Serial.print("Sent: ");
+    Serial.println(msg);
+    return 1;
+  }
+  return 0; // Not connected
 }
 
 String receive() {
-  if (client.available()) {
-    String line = client.readStringUntil('\n');
-    Serial.print("Received: ");
-    Serial.println(line);
-    return line;
+  int timeout = 0;
+  while (!client.available()) {
+    if (timeout > 500) {
+      Serial.println("Receive timeout");
+      return ".";
+    }
+    delay(1);
+    timeout++;
   }
-  return ".";
+  
+  String line = client.readStringUntil('\n');
+  Serial.print("Received: ");
+  Serial.println(line);
+  return line;
 }

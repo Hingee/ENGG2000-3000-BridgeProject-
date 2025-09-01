@@ -40,8 +40,6 @@ public class BridgeCon {
     }
 
     private void startListening() {
-        
-
         listenerThread = new Thread(() -> {
             try {
                 while (!Thread.currentThread().isInterrupted()) {
@@ -50,25 +48,29 @@ public class BridgeCon {
                     msgs.add(msg);
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                msgs.add("LOST");
             }
         });
         listenerThread.start();
     }
 
-    public void send(String msg) throws IOException{
+    public void send(String msg){
         out.println(msg);
         System.out.println("Sent: "+msg+" from port: " + port);
     }
 
     synchronized public String recieve() {
-        return msgs.poll();
+        String msg =  msgs.poll();
+        System.out.println("-------------Recieved: "+msg+" from port: " + port);
+        return ""+msg;
     }
 
-    public void close() throws IOException{
+    public void close() {
         if (listenerThread != null) listenerThread.interrupt();
-        clientSocket.close();
-        serverSocket.close();
+        try {
+            clientSocket.close();
+            serverSocket.close();
+        } catch (IOException e) {}
         System.out.println("Closed Connection");
     }
 
