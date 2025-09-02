@@ -22,12 +22,18 @@ public class Server {
         BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
         PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
 
-        // Read message from client
-        String message = in.readLine();
-        System.out.println("Client says: " + message);
-
-        // Send response to the client
-        out.println("Message received by the server.");
+        while(true) {
+            // Receive response from the server
+            String response = in.readLine();
+            System.out.println("Client says: " + response);
+            if(response.equals("t")) {
+                out.println("time");
+            }else if(response.equals("QUIT")) {
+                break;
+            }else {
+                out.println("OK");
+            }
+        }
 
         // Close the client socket
         clientSocket.close();

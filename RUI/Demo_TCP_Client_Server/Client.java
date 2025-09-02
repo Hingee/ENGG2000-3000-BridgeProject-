@@ -14,7 +14,7 @@ public class Client {
         Socket socket = new Socket(ip, destPort);
         
         // Setup output stream to send data to the server
-        // PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+        PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
         
         // Setup input stream to receive data from the server
         BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));

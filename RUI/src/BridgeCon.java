@@ -4,38 +4,34 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
-import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.LinkedList;
 import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class BridgeCon {
-    private int port;
     private boolean conStatus;
     private Queue<String> msgs;
-    private ServerSocket serverSocket;
-    private Socket clientSocket;
+    private Socket socket;
     private Thread listenerThread;
+    private final String ip = "192.168.1.1";
+    private final int serverPort = 9090;
 
     // Setup input and output streams for communication with the client
     private BufferedReader in;
     private PrintWriter out;
 
     BridgeCon() {
-        port = 9090;
         conStatus = false;
-        msgs = new LinkedList<String>();
+        msgs = new ConcurrentLinkedQueue<String>();
     }
 
     public void startUp() throws IOException{
-        serverSocket = new ServerSocket(port);
-        System.out.println("Server is running and waiting for client connection...");
+        socket = new Socket(ip, serverPort);
+        System.out.println("Client is connecting to Bridge");
 
-        clientSocket = serverSocket.accept();
-        System.out.println("Client connected!");
-
-        in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-        out = new PrintWriter(clientSocket.getOutputStream(), true);
+        in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        out = new PrintWriter(socket.getOutputStream(), true);
+        conStatus = true;
         startListening();
     }
 
@@ -44,41 +40,56 @@ public class BridgeCon {
             try {
                 while (!Thread.currentThread().isInterrupted()) {
                     String msg = in.readLine();
-                    System.out.println("Recieved: "+msg+" from port: " + port);
-                    msgs.add(msg);
+                    if (msg == null) {
+                        // Server closed the connection gracefully
+                        setConStatus(false);
+                    }else {
+                        msgs.add(msg);
+                        setConStatus(true);
+                    }
                 }
-            } catch (Exception e) {
-                msgs.add("LOST");
+            } catch (IOException e) {
+                System.out.println("Connection lost: " + e.getMessage());
+                setConStatus(false);
             }
         });
         listenerThread.start();
     }
 
-    public void send(String msg){
+    public boolean send(String msg){
+        if(!getConStatus()) return false;
         out.println(msg);
-        System.out.println("Sent: "+msg+" from port: " + port);
+        System.out.println("Sent: "+msg+" from port: " + serverPort);
+        return true;
     }
 
-    synchronized public String recieve() {
-        String msg =  msgs.poll();
-        System.out.println("-------------Recieved: "+msg+" from port: " + port);
+    public String recieve() {
+        if(!socket.isConnected() ||!getConStatus()){
+            setConStatus(false);
+            return "_";
+        } 
+        String msg = null;
+        while(msg == null) {
+            msg =  msgs.poll();
+            if(msgs.isEmpty()) return ".";
+        }
+        System.out.println("-------------Recieved: "+msg+" from port: " + serverPort);
         return ""+msg;
     }
 
     public void close() {
         if (listenerThread != null) listenerThread.interrupt();
         try {
-            clientSocket.close();
-            serverSocket.close();
+            socket.close();
         } catch (IOException e) {}
         System.out.println("Closed Connection");
     }
 
-    public boolean getConStatus() {
+    synchronized public boolean getConStatus() {
         return conStatus;
     }
 
-    public void setConStatus(boolean b) {
+    synchronized public void setConStatus(boolean b) {
         conStatus = b;
     }
 }
