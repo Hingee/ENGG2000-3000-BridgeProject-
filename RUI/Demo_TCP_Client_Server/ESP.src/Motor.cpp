@@ -6,10 +6,9 @@
   bool ESPcall = true; //standin for a send from the ESP main
 
   //Motor specific
-  static int motor1Pin1 = 27; 
-  static int motor1Pin2 = 26; 
-  static int enable1Pin = 14; 
-  int duration = 5000; //1000 is a second
+  static int motorDriverPin1 = 27; 
+  static int motorDriverPin2 = 26; 
+  int duration = 2000; //1000 is a second
   bool Direction = true; //true forward, false backwards
 
   //Note when this is running like this it will take priority on the ESP code,
@@ -51,7 +50,6 @@ void setup() { //these setup pins should be established in the main when develop
     Serial.begin(115200); //get serial
     pinMode(motor1Pin1, OUTPUT);
     pinMode(motor1Pin2, OUTPUT);
-    pinMode(enable1Pin, OUTPUT);
 }
 
 void loop() {
