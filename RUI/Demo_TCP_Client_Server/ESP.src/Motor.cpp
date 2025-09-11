@@ -17,6 +17,14 @@
   //if other functions need to be run during the open/close sequence they could be integrated into the loop
   //e.g. safety-check or signalling LEDs.
 
+
+/*  
+if(runningbridge) {digitalWrite(motor1Pin1, LOW)}; //p1 low and p2 high is forward
+send call back (raise and lower void call when completed)
+bridgeSystem.mechaism.raise()
+*/
+
+
 void MotorOpeningSequence(){ 
     Serial.println("Opening sequence (Forward)");
     int startTime = millis();
