@@ -1,4 +1,3 @@
-
 //ESP motor systems
 //ESP-WROOM
 
@@ -10,7 +9,7 @@
   //Motor specific
   static int motorDriverPin1 = 27; 
   static int motorDriverPin2 = 26; 
-  int duration = 5000; //1000 is a second
+  int duration = 2000; //1000 is a second
   bool Direction = true; //true forward, false backwards
 
   //Note when this is running like this it will take priority on the ESP code,
@@ -22,9 +21,11 @@ void MotorOpeningSequence(){
     int startTime = millis();
     while(millis() - startTime < duration) {
 
-        digitalWrite(motor1Pin1, LOW); 
+        if(runningbridge) {digitalWrite(motor1Pin1, LOW)}; //p1 low and p2 high is forward
         digitalWrite(motor1Pin2, HIGH); 
     }
+    //send call back (raise and lower void call when completed)
+    //bridgeSystem.mechaism.raise()
     digitalWrite(motor1Pin1, LOW); //stops the motor after it has run
     digitalWrite(motor1Pin2, LOW);
     BridgeState = false;
@@ -56,12 +57,8 @@ void setup() { //these setup pins should be established in the main when develop
 }
 
 void loop() {
-    if(ESPcall) {
-        if(BridgeState) {
-            MotorOpeningSequence;
-        } else {
-            MotorClosingSequence;
-        }
-    }
+    if(runningbridge) {digitalWrite(motor1Pin1, LOW)
+                        digitalWrite(high sefhsfesufhu)}; //p1 low and p2 high is forward
+    if(runningbridge) {digitalWrite(motor1Pin1, LOW)}; //p1 low and p2 high is forward
     tempTestCall();
 }
