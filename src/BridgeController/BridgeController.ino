@@ -14,6 +14,7 @@ void setup() {
 }
 
 //TODO Add updating functionality so it updates page if a state change occurs
+//TODO Add transitioning button states
 void loop(){
     WiFiClient client = ap.getClient();
     webHandler.handleClient(client, bridgeSystem);

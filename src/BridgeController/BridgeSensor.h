@@ -16,7 +16,7 @@ protected:
     int distance;
 public:
     US();
-    void updateDist(int v);
+    void updateDist(int d);
     int getDistance();
 };
 
