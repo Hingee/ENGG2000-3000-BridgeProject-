@@ -95,10 +95,8 @@ void loop(){
 }
 
 void bridgeAuto() {
-//    distanceA = readUltrasonic(trigPinA, echoPinA);
-//    distanceB = readUltrasonic(trigPinB, echoPinB);
-    distanceA = random(100); 
-    distanceB = random(100);
+    distanceA = readUltrasonic(trigPinA, echoPinA);
+    distanceB = readUltrasonic(trigPinB, echoPinB);
 
     Serial.print("Sensor A: ");
     if (distanceA == -1) Serial.print("No echo");
