@@ -8,6 +8,21 @@
 #include "WebServerHandler.h"
 #include "BridgeSystem.h"
 
+//Bridge Motor Automation Initialisation
+bool mechanismState = true; //true closed, false open
+bool runningbridge = true;
+
+//Motor specific
+static int motorDriverPin1 = 27; 
+static int motorDriverPin2 = 26; 
+int duration = 5000; //1000 is a second
+bool Direction = true; //true forward, false backwards
+
+//Encoder
+const int encoderPinA = 34;
+volatile unsigned long pulseCount = 0;
+const int pulsesPerRevolution = 374; //may need adjusting
+
 // Servo setup
 Servo myServo;
 int servoPin = 13;  // GPIO13 for servo
@@ -35,12 +50,15 @@ enum BridgeState {
   AUTO,
 };
 
-BridgeState state = AUTO;
+BridgeState state;
+
+void IRAM_ATTR onPulse();
 
 void setup() {
     Serial.begin(115200);
     ap.begin();
 
+    state = AUTO;
     // Servo setup
     myServo.attach(servoPin, 900, 2000);  
     myServo.write(gatePos);
@@ -52,7 +70,14 @@ void setup() {
     pinMode(trigPinB, OUTPUT);
     pinMode(echoPinB, INPUT);
 
-    Serial.println("Boom gate system ready.");
+    //Motor Setup
+    pinMode(motorDriverPin1, OUTPUT);
+    pinMode(motorDriverPin2, OUTPUT);
+    digitalWrite(motorDriverPin1, LOW);
+    digitalWrite(motorDriverPin2, LOW);
+
+    pinMode(encoderPinA, INPUT_PULLUP);
+//    attachInterrupt(digitalPinToInterrupt(encoderPinA), onPulse, RISING);
 
     xTaskCreatePinnedToCore(networkTask,
         "NetworkTask",
@@ -91,7 +116,6 @@ void loop(){
       bridgeManual();
       break;
   }
-  delay(500); // update every 0.5s
 }
 
 void bridgeAuto() {
@@ -122,6 +146,16 @@ void bridgeAuto() {
         moveServoSmooth(90); // open gate slowly
         bridgeSystem.gate.open();
     }
+
+    //Motor Functionality
+    if(mechanismState) {
+        MotorOpeningSequence();
+        bridgeSystem.mechanism.lower();
+    } else {
+        MotorClosingSequence();
+        bridgeSystem.mechanism.raise();
+    }
+    delay(100); // update every 0.1s
 }
 
 void bridgeManual() {
@@ -130,6 +164,13 @@ void bridgeManual() {
   }else {
       moveServoSmooth(0);  // close gate slowly
   }
+
+  if(bridgeSystem.mechanism.getButton() == 1){
+      MotorOpeningSequence(); //Open bridge 5s
+  }else {
+      MotorClosingSequence(); //Close bridge 5s
+  }
+  delay(100); // update every 0.1s
 }
 
 // Function to read ultrasonic distance
@@ -162,4 +203,59 @@ void moveServoSmooth(int targetPos) {
         }
     }
     gatePos = targetPos;
+}
+
+void MotorOpeningSequence(){ 
+    Serial.println("Opening sequence (Forward)");
+    unsigned long startTime = millis();
+    while(millis() - startTime < duration) {
+        digitalWrite(motorDriverPin1, LOW); 
+        digitalWrite(motorDriverPin2, HIGH); 
+        printRPM();
+        delay(1);  // Let the watchdog breathe
+    }
+    digitalWrite(motorDriverPin1, LOW);
+    digitalWrite(motorDriverPin2, LOW);
+    mechanismState = false;
+}
+
+void MotorClosingSequence(){
+    Serial.println("Closing sequence (Backwards)");
+    unsigned long startTime = millis();
+    while(millis() - startTime < duration) {
+        digitalWrite(motorDriverPin1, HIGH);
+        digitalWrite(motorDriverPin2, LOW);
+        printRPM();
+        delay(1);  // Let the watchdog breathe
+    }
+    digitalWrite(motorDriverPin1, LOW);
+    digitalWrite(motorDriverPin2, LOW);
+    mechanismState = true;
+}
+
+void IRAM_ATTR onPulse() {
+  pulseCount++; //count pulses
+}
+
+void printRPM() {
+    //calculate and print RPM every second while motor runs
+    static unsigned long lastTime = 0;
+    unsigned long now = millis();
+    if(now - lastTime >= 1000) {
+        noInterrupts();
+        unsigned long pulses = pulseCount;
+        pulseCount = 0;
+        interrupts();
+
+        float revolutions = (float)pulses / pulsesPerRevolution;
+        float rpm = revolutions * 60.0;
+
+        Serial.print("Pulses/sec: ");
+        Serial.print(pulses);
+        Serial.print("  |  RPM: ");
+        Serial.println(rpm, 2);
+
+        lastTime = now;
+    }    
+    //if explodes put this into the while loop
 }
