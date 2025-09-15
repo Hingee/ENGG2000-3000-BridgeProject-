@@ -2,6 +2,7 @@
 #define BRIDGEDEVICE_H
 
 #include <Arduino.h>
+#include <mutex>
 
 class BridgeDevice {
 protected:
@@ -9,12 +10,13 @@ protected:
     String state;
     int buttonState;
     String* possibleStates;
+    SemaphoreHandle_t mutex;
 public:
     BridgeDevice(String n, String initState, int b, String* ps);
     void setState(String s);
     String getState();
-    void setButton(int b);
-    int getButton();
+    void setButton(int b);//Threadsafe
+    int getButton();//Threadsafe
     String getName();
     String getPosState(int i);
 };
@@ -52,8 +54,8 @@ public:
 class Override : public BridgeDevice {
 public:
     Override();
-    void on();
-    void off();
+    void on();//Threadsafe
+    void off();//Threadsafe
 };
 
 #endif

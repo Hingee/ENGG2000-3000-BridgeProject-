@@ -65,25 +65,25 @@ void WebServerHandler::sendResponse(WiFiClient& client, BridgeSystem& system) {
       renderFlipButton(client, system.gate);
       renderRadioButton(client, system.trafficLights);
       renderRadioButton(client, system.bridgeLights);
+    }else {
+      client.println("<h3>Sensor Readings</h3>");
+      client.println("<div id='sensorData'>Loading...</div>");
+  
+      client.println("<script>");
+      client.println("function updateSensors() {");
+      client.println("    fetch('/sensor')");
+      client.println("    .then(response => response.json())");
+      client.println("    .then(data => {");
+      client.println("        document.getElementById('sensorData').innerHTML = ");
+      client.println("            'Ultrasonic_Front: ' + data.ultrasonic0 + ' cm<br>' +");
+      client.println("            'Ultrasonic_Back: ' + data.ultrasonic1 + ' cm<br>' +");
+      client.println("            'PIR: ' + (data.pir ? 'Motion Detected' : 'No Motion');");
+      client.println("    });");
+      client.println("}");
+      client.println("setInterval(updateSensors, 1000);");
+      client.println("updateSensors();");
+      client.println("</script>");
     }
-
-    client.println("<h3>Sensor Readings</h3>");
-    client.println("<div id='sensorData'>Loading...</div>");
-
-    client.println("<script>");
-    client.println("function updateSensors() {");
-    client.println("    fetch('/sensor')");
-    client.println("    .then(response => response.json())");
-    client.println("    .then(data => {");
-    client.println("        document.getElementById('sensorData').innerHTML = ");
-    client.println("            'Ultrasonic_Front: ' + data.ultrasonic0 + ' cm<br>' +");
-    client.println("            'Ultrasonic_Back: ' + data.ultrasonic1 + ' cm<br>' +");
-    client.println("            'PIR: ' + (data.pir ? 'Motion Detected' : 'No Motion');");
-    client.println("    });");
-    client.println("}");
-    client.println("setInterval(updateSensors, 1000);");
-    client.println("updateSensors();");
-    client.println("</script>");
     
     client.println("</body>");
     client.println("</html>");

@@ -6,19 +6,43 @@ BridgeDevice::BridgeDevice(String n, String initState, int b, String* ps) {
     state = initState; 
     buttonState = b; 
     possibleStates = ps;
+    mutex = xSemaphoreCreateMutex();
+    assert(mutex);
 }
 void BridgeDevice::setState(String s) { state = s; }
 String BridgeDevice::getState() { return state; }
-void BridgeDevice::setButton(int b) { buttonState = b; }
-int BridgeDevice::getButton() { return buttonState; }
+void BridgeDevice::setButton(int b) {  
+    xSemaphoreTake(mutex, portMAX_DELAY);
+    buttonState = b; 
+    xSemaphoreGive(mutex);
+}
+int BridgeDevice::getButton() { 
+    int temp;
+    xSemaphoreTake(mutex, portMAX_DELAY);
+    temp = buttonState; 
+    xSemaphoreGive(mutex);
+    return temp; 
+}
 String BridgeDevice::getName() { return name; }
 String BridgeDevice::getPosState(int i){ return possibleStates[i]; }
 
 //Gate Device Child Class
 static String gateStates[] = {"Open", "Close"};
 Gate::Gate() : BridgeDevice("Gate", "Closed", 0, gateStates) {}
-void Gate::open()  { state = "Opened"; setButton(1); Serial.println("Gate Opened"); }
-void Gate::close() { state = "Closed"; setButton(0); Serial.println("Gate Closed"); }
+void Gate::open()  { 
+    xSemaphoreTake(mutex, portMAX_DELAY);
+    state = "Opened"; 
+    xSemaphoreGive(mutex);
+    setButton(1);
+    Serial.println("Opening gate");
+}
+void Gate::close() { 
+    xSemaphoreTake(mutex, portMAX_DELAY);
+    state = "Closed"; 
+    xSemaphoreGive(mutex);
+    setButton(0); 
+    Serial.println("Closing gate");
+}
 
 //Alarm Device Child Class
 static String alarmStates[] = {"On", "Off"};

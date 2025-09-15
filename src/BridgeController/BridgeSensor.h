@@ -2,10 +2,12 @@
 #define BRIDGESENSOR_H
 
 #include <Arduino.h>
+#include <mutex>
 
 class BridgeSensor {
 protected:
     String name;
+    SemaphoreHandle_t mutex;
 public:
     BridgeSensor(String n);
     String getName();
