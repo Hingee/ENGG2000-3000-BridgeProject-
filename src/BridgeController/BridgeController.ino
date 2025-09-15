@@ -238,7 +238,7 @@ void IRAM_ATTR onPulse() {
 }
 
 void printRPM() {
-    //calculate and print RPM every second while motor runs
+  /*  //calculate and print RPM every second while motor runs
     static unsigned long lastTime = 0;
     unsigned long now = millis();
     if(now - lastTime >= 1000) {
@@ -256,6 +256,5 @@ void printRPM() {
         Serial.println(rpm, 2);
 
         lastTime = now;
-    }    
-    //if explodes put this into the while loop
+    }  */
 }
