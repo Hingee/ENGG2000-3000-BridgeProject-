@@ -1,0 +1,163 @@
+#include "WebServerHandler.h"
+
+void WebServerHandler::handleClient(WiFiClient& client, BridgeSystem& system) {
+    if (!client) return;
+    header = "";
+    unsigned long timeout = millis();
+
+    while (client.connected() && millis() - timeout < 2000) {
+        if (client.available()) {
+            char c = client.read();
+            header += c;
+            if (c == '\n') {
+                if (header.indexOf("/sensor") >= 0) {
+                    sendSensorData(client, system);
+                } else {
+                    sendResponse(client, system);
+                }
+                break;
+            }
+        }
+        delay(1);
+    }
+    client.flush();
+    client.stop();
+}
+
+void WebServerHandler::sendResponse(WiFiClient& client, BridgeSystem& system) {
+    //Response Header
+    client.println("HTTP/1.1 200 OK");
+    client.println("Content-type:text/html");
+    client.println("Connection: close");
+    client.println();
+
+    // Apply command
+    system.execute(header);
+
+    // HTML page
+    client.println("<!DOCTYPE html><html>");
+    client.println("<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
+    client.println("<link rel=\"icon\" href=\"data:,\">");
+
+    //CSS to Style Buttons
+    client.println("<style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;");
+    client.println("  width: 100vw; height: 100vh; overflow: hidden; }");
+    
+    client.println("h1 { font-size: 1.2em; margin: 5px 0; }");
+    client.println("h2, h3 { font-size: 1em; margin: 3px 0; }");
+    client.println("p { font-size: 1em; margin: 2px 0; }");
+    
+    client.println(".button { background-color: #4CAF50; border: none; color: white; padding: 8px 15px;");
+    client.println("text-decoration: none; font-size: 12px; margin: 2px; cursor: pointer; border-radius: 5px; }");
+    client.println(".button2 {background-color: #555555;}");
+
+    client.println("#sensorData { font-size: 0.9em; margin-top: 5px; }");
+    client.println("</style></head>");
+
+    // Web Page Heading
+    client.println("<body><h1>Bridge12 Controller</h1>");
+
+    client.println("<h2>Mechanism Controls</h2>");
+    renderFlipButton(client, system.override);
+    if(system.override.getButton() == 1) {
+      renderFlipButton(client, system.mechanism);
+      renderFlipButton(client, system.alarm);
+      renderFlipButton(client, system.gate);
+      renderRadioButton(client, system.trafficLights);
+      renderRadioButton(client, system.bridgeLights);
+    }else {
+      client.println("<h3>Sensor Readings</h3>");
+      client.println("<div id='sensorData'>Loading...</div>");
+  
+      client.println("<script>");
+      client.println("function updateSensors() {");
+      client.println("    fetch('/sensor')");
+      client.println("    .then(response => response.json())");
+      client.println("    .then(data => {");
+      client.println("        document.getElementById('sensorData').innerHTML = ");
+      client.println("            'Ultrasonic_Front: ' + data.ultrasonic0 + ' cm<br>' +");
+      client.println("            'Ultrasonic_Back: ' + data.ultrasonic1 + ' cm<br>' +");
+      client.println("            'PIR: ' + (data.pir ? 'Motion Detected' : 'No Motion');");
+      client.println("    });");
+      client.println("}");
+      client.println("setInterval(updateSensors, 1000);");
+      client.println("updateSensors();");
+      client.println("</script>");
+    }
+    
+    client.println("</body>");
+    client.println("</html>");
+    client.println();
+}
+
+void WebServerHandler::sendSensorData(WiFiClient& client, BridgeSystem& system) {       
+    // Response header
+    client.println("HTTP/1.1 200 OK");
+    client.println("Content-Type: application/json");
+    client.println("Connection: close");
+    client.println();
+
+    // JSON with sensor values
+    String json = "{";
+    json += "\"ultrasonic0\":" + String(system.ultra0.getDistance()) + ",";
+    json += "\"ultrasonic1\":" + String(system.ultra1.getDistance()) + ",";
+    json += "\"pir\":" + String(system.pir.isTriggered() ? 1 : 0);
+    json += "}";
+
+    client.println(json);
+}
+
+void WebServerHandler::renderFlipButton(WiFiClient& client, BridgeDevice& device) {
+    int button = device.getButton();
+    String name =  device.getName();
+    String action;
+
+    if(button == 0) {
+        action = device.getPosState(0); // first state
+    } else {
+        action = device.getPosState(1); // second state
+    }
+
+    client.print("<p>");  
+    client.print(name); 
+    client.print(" - State "); 
+    client.print(device.getState());
+    client.println("<p>");
+    client.print("<p><a href=\"/");
+    client.print(device.getName());
+    client.print("/");
+    client.print(action);
+    client.print("?ts=");
+    client.print(millis());
+    client.print("\"><button class=\"button\">");
+    client.print(action);
+    client.println("</button></a></p>");
+}
+
+void WebServerHandler::renderRadioButton(WiFiClient& client, BridgeDevice& device) {
+    int statesCount = 3;
+    String name =  device.getName();
+    int currState = device.getButton();
+
+    client.print("<p>");
+    client.print(name);
+    client.println("</p>");
+
+    for (int i = 0; i < statesCount; i++) {
+        String stateName = device.getPosState(i);
+        String buttonClass = (i == currState) ? "button" : "button2";
+
+        client.print("<a href=\"/");
+        client.print(name);
+        client.print("/");
+        client.print(stateName);
+        client.print("?ts=");
+        client.print(millis());
+        client.print("\"><button class=\"");
+        client.print(buttonClass);
+        client.print(" radio\">");
+        client.print(stateName);
+        client.println("</button></a>");
+    }
+    client.println("<br>");
+}
