@@ -1,0 +1,381 @@
+/*
+   ESP32 I2C LCD Display with Buzzer Control
+
+   This program demonstrates how to control an LCD display using I2C communication
+   and a buzzer for audio feedback with an ESP32 microcontroller.
+
+   Wiring:
+   LCD I2C Module -> ESP32
+   VCC -> 3.3V or 5V
+   GND -> GND
+   SDA -> GPIO 21 (default SDA pin)
+   SCL -> GPIO 22 (default SCL pin)
+
+   Buzzer -> ESP32
+   Positive -> GPIO 5
+   Negative -> GND
+
+   Required Library: LiquidCrystal_I2C
+   Install via: Tools > Manage Libraries > Search "LiquidCrystal I2C"
+*/
+
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
+// LCD Configuration
+LiquidCrystal_I2C lcd(0x27, 16, 2);  // 16x2 LCD with I2C address 0x27
+
+// Buzzer Configuration
+#define GREEN_LED_PIN 15
+#define YELLOW_LED_PIN 2
+#define RED_LED_PIN 4
+#define BUZZER_PIN 5
+#define PIR_PIN 16
+
+// Musical notes (frequencies in Hz)
+#define NOTE_C4  262
+#define NOTE_D4  294
+#define NOTE_E4  330
+#define NOTE_F4  349
+#define NOTE_G4  392
+#define NOTE_A4  440
+#define NOTE_B4  494
+#define NOTE_C5  523
+
+int pirState = LOW;             // we start, assuming no motion detected
+int val = 0;                    // variable for reading the pin status
+
+const char *Music[] = {
+  "E5", "D#5", "E5", "D#5", "E5", "B4", "D5", "C5", "A4",
+  "C4", "E4", "A4", "B4",
+  "E4", "G#4", "B4", "C5",
+  "E4", "E5", "D#5", "E5", "D#5", "E5", "B4", "D5", "C5", "A4",
+  "A4", "C4", "E4", "A4",
+  "B4", "E4", "C5", "B4", "A4",
+  "E5", "D#5", "E5", "D#5", "E5", "B4", "D5", "C5", "A4",
+  "C4", "E4", "A4", "B4",
+  "E4", "C5", "B4", "A4"
+};
+typedef struct {
+  char *note;
+  int frequency;
+} NoteFrequency;
+
+NoteFrequency frequencies[] = {
+  {"A0", 36364}, {"A#0", 34323}, {"B0", 32397}, {"C0", 30578}, {"C#0", 28862},
+  {"D0", 27242}, {"D#0", 25713}, {"E0", 24270}, {"F0", 22908}, {"F#0", 21622},
+  {"G0", 20408}, {"G#0", 19263}, {"A1", 18182}, {"A#1", 17161}, {"B1", 16007},
+  {"C1", 15289}, {"C#1", 14431}, {"D1", 13621}, {"D#1", 12857}, {"E1", 12135},
+  {"F1", 11454}, {"F#1", 10811}, {"G1", 10204}, {"G#1", 9631}, {"A2", 9091},
+  {"A#2", 8581}, {"B2", 8099}, {"C2", 7645}, {"C#2", 7215}, {"D2", 6810},
+  {"D#2", 6428}, {"E2", 6068}, {"F2", 5727}, {"F#2", 5405}, {"G2", 5102},
+  {"G#2", 4816}, {"A3", 4545}, {"A#3", 4290}, {"B3", 4050}, {"C3", 3822},
+  {"C#3", 3608}, {"D3", 3405}, {"D#3", 3214}, {"E3", 3034}, {"F3", 2863},
+  {"F#3", 2703}, {"G3", 2531}, {"G#3", 2408}, {"A4", 2273}, {"A#4", 2145},
+  {"B4", 2011}, {"C4", 1901}, {"C#4", 1790}, {"D4", 1692}, {"D#4", 1603},
+  {"E4", 1517}, {"F4", 1432}, {"F#4", 1351}, {"G4", 1276}, {"G#4", 1204},
+  {"A5", 1136}, {"A#5", 1073}, {"B5", 1012}, {"C5", 956}, {"C#5", 902},
+  {"D5", 851}, {"D#5", 804}, {"E5", 758}, {"F5", 716}, {"F#5", 676},
+  {"G5", 638}, {"G#5", 602}, {"A6", 568}, {"A#6", 536}, {"B6", 506},
+  {"C6", 478}, {"C#6", 451}, {"D6", 426}, {"D#6", 402}, {"E6", 379},
+  {"F6", 358}, {"F#6", 338}, {"G6", 319}, {"G#6", 301}, {"A7", 284},
+  {"A#7", 268}, {"B7", 253}, {"C7", 239}, {"C#7", 225}, {"D7", 213},
+  {"D#7", 201}, {"E7", 190}, {"F7", 179}, {"F#7", 169}, {"G7", 159},
+  {"G#7", 150}, {"A8", 142}, {"A#8", 134}, {"B8", 127}, {"C8", 119},
+  {"C#8", 113}, {"D8", 106}, {"D#8", 100}, {"E8", 95}, {"F8", 89},
+  {"F#8", 84}, {"G8", 80}, {"G#8", 75}, {"A9", 71}, {"A#9", 67},
+  {"B9", 63}, {"C9", 60}, {"C#9", 56}, {"D9", 53}, {"D#9", 50},
+  {"E9", 47}, {"F9", 45}, {"F#9", 42}, {"G9", 40}, {"G#9", 38},
+};
+
+uint16_t getNotes(char *value) {
+
+  for (int i = 0; i < sizeof(frequencies); i++) {
+    if ((frequencies[i].note == value)) {
+      return frequencies[i].frequency;
+    }
+  }
+  return 0; // Return 0 if note not found (silent)
+}
+char getMusic(uint16_t value) {
+  return *Music[value];
+};
+
+// Mary Had a Little Lamb - Melody in C
+char *melody[] = {
+  "E4", "D4", "C4", "D4",
+  "E4", "E4", "E4",
+  "D4", "D4", "D4",
+  "E4", "G4", "G4",
+
+  "E4", "D4", "C4", "D4",
+  "E4", "E4", "E4", "E4",
+  "D4", "D4", "E4", "D4",
+  "C4",
+
+};
+
+// Note durations in milliseconds
+int noteDurations[] = {
+  300, 300, 300, 300,
+  300, 300, 600,
+  300, 300, 600,
+  300, 300, 600,
+
+  // Second line
+  300, 300, 300, 300,
+  300, 300, 300, 300,
+  300, 300, 300, 300,
+  1200,
+  // Fourth line
+};
+void setup() {
+  Serial.begin(9600);
+  Serial.println("ESP32 I2C LCD with Buzzer Initialize");
+
+  // Initialize buzzer pin
+  pinMode(BUZZER_PIN, OUTPUT);
+  pinMode(GREEN_LED_PIN, OUTPUT);
+  pinMode(YELLOW_LED_PIN, OUTPUT);
+  pinMode(RED_LED_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, LOW);
+
+  // Initialize the LCD
+  lcd.init();
+  lcd.backlight();
+  lcd.clear();
+
+  // Welcome message with sound
+  lcd.setCursor(0, 0);
+  lcd.print("ESP32 LCD+Buzzer");
+  lcd.setCursor(0, 1);
+  lcd.print("System Ready!");
+
+  // Welcome sound sequence
+  playWelcomeTone();
+
+  delay(2000);
+  scanI2CDevices();
+}
+
+void loop() {
+  PIR();
+
+}
+
+// =================== BUZZER FUNCTIONS ===================
+
+void beep(int frequency, int duration) {
+  tone(BUZZER_PIN, frequency, duration);
+}
+
+void shortBeep() {
+  beep(1000, 100);
+}
+
+void longBeep() {
+  beep(800, 500);
+}
+
+void doubleBeep() {
+  beep(1200, 150);
+  delay(100);
+  beep(1200, 150);
+}
+
+void tripleBeep() {
+  for (int i = 0; i < 3; i++) {
+    beep(1500, 100);
+    delay(100);
+  }
+}
+
+void playWelcomeTone() {
+  int melody[] = {NOTE_C4, NOTE_E4, NOTE_G4, NOTE_C5};
+  int durations[] = {200, 200, 200, 400};
+
+  for (int i = 0; i < 4; i++) {
+    beep(melody[i], durations[i]);
+    delay(50);
+  }
+}
+
+void playAlarm() {
+  for (int i = 0; i < 5; i++) {
+    beep(2000, 200);
+    delay(200);
+    beep(1500, 200);
+    delay(200);
+  }
+}
+
+void playSuccessSound() {
+    char *note;
+    int freq;
+  int length = sizeof(noteDurations) / sizeof(noteDurations[0]);
+
+  for (int i = 0; i < length; i++) {
+    freq = getNotes(melody[i]);
+    beep(freq,noteDurations[i]);
+  }
+}
+
+void playErrorSound() {
+  for (int i = 0; i < 3; i++) {
+    beep(300, 200);
+    delay(100);
+  }
+}
+
+void playClickSound() {
+  beep(1200, 50);
+}
+
+void PIR() {
+  val = digitalRead(PIR_PIN);  // read input value
+
+  if (val == HIGH)        // check if the input is HIGH
+  {
+    digitalWrite(RED_LED_PIN, HIGH);  // turn LED ON
+    playSuccessSound();
+    if (pirState == LOW)
+    {
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("Motion detected!");
+      Serial.println("Motion detected!");        // print on output change
+      pirState = HIGH;
+    }
+  }
+  else
+  {
+    digitalWrite(RED_LED_PIN, LOW); // turn LED OFF
+
+    if (pirState == HIGH)
+    {
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("Motion ended!");
+      Serial.println("Motion ended!");        // print on output change
+      pirState = LOW;
+    }
+  }
+}
+// =================== DISPLAY FUNCTIONS ===================
+
+void displayWithBeep(String line1, String line2) {
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print(line1);
+  lcd.setCursor(0, 1);
+  lcd.print(line2);
+  shortBeep();
+}
+
+void alarmDemo() {
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("ALARM DEMO");
+  lcd.setCursor(0, 1);
+  lcd.print("WARNING!");
+
+  // Flash display and sound alarm
+  for (int i = 0; i < 3; i++) {
+    lcd.noBacklight();
+    beep(2000, 300);
+    delay(200);
+    lcd.backlight();
+    beep(1500, 300);
+    delay(200);
+  }
+}
+
+void musicalScaleDemo() {
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Musical Scale");
+
+  int scale[] = {NOTE_C4, NOTE_D4, NOTE_E4, NOTE_F4, NOTE_G4, NOTE_A4, NOTE_B4, NOTE_C5};
+  String notes[] = {"C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5"};
+
+  for (int i = 0; i < 8; i++) {
+    lcd.setCursor(0, 1);
+    lcd.print("Playing: ");
+    lcd.print(notes[i]);
+    lcd.print("    "); // Clear remaining chars
+    beep(scale[i], 500);
+    delay(200);
+  }
+}
+
+
+
+// =================== UTILITY FUNCTIONS ===================
+
+void scanI2CDevices() {
+  Serial.println("Scanning I2C devices...");
+  byte error, address;
+  int deviceCount = 0;
+
+  for (address = 1; address < 127; address++) {
+    Wire.beginTransmission(address);
+    error = Wire.endTransmission();
+
+    if (error == 0) {
+      Serial.print("I2C device found at address 0x");
+      if (address < 16) Serial.print("0");
+      Serial.println(address, HEX);
+      deviceCount++;
+    }
+  }
+
+  if (deviceCount == 0) {
+    Serial.println("No I2C devices found");
+    playErrorSound();
+  } else {
+    Serial.print("Found ");
+    Serial.print(deviceCount);
+    Serial.println(" I2C device(s)");
+    shortBeep();
+  }
+}
+
+void displayTime(int hours, int minutes, int seconds) {
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Current Time:");
+  lcd.setCursor(0, 1);
+  if (hours < 10) lcd.print("0");
+  lcd.print(hours);
+  lcd.print(":");
+  if (minutes < 10) lcd.print("0");
+  lcd.print(minutes);
+  lcd.print(":");
+  if (seconds < 10) lcd.print("0");
+  lcd.print(seconds);
+
+  // Beep every minute
+  if (seconds == 0) {
+    shortBeep();
+  }
+}
+
+
+void systemStartup() {
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("System Starting");
+
+  for (int i = 0; i < 3; i++) {
+    lcd.setCursor(0, 1);
+    for (int j = 0; j <= i; j++) {
+      lcd.print(".");
+    }
+    beep(500 + (i * 200), 200);
+    delay(500);
+  }
+
+  lcd.setCursor(0, 1);
+  lcd.print("Ready!          ");
+  playSuccessSound();
+}
