@@ -13,8 +13,8 @@ bool mechanismState = true; //true closed, false open
 bool runningbridge = true;
 
 //Motor specific
-static int motorDriverPin1 = 27; 
-static int motorDriverPin2 = 26; 
+static int motorDriverPin1 = 27; //27 - S3 will have error from this
+static int motorDriverPin2 = 26; //26 - S3 will have error from this
 int duration = 5000; //1000 is a second
 bool Direction = true; //true forward, false backwards
 
@@ -42,7 +42,7 @@ int gatePos = 90;  // Start open (upright)
 //Network Variables
 APHandler ap(IPAddress(192,168,1,1), IPAddress(192,168,1,1), IPAddress(255,255,255,0));
 WebServerHandler webHandler;
-BridgeSystem bridgeSystem;
+BridgeSystem* bridgeSystem = nullptr;
 
 // ---------- STATE MACHINE ----------
 enum BridgeState {
@@ -56,8 +56,10 @@ void IRAM_ATTR onPulse();
 
 void setup() {
     Serial.begin(115200);
-    ap.begin();
+    delay(100);
 
+    bridgeSystem = new BridgeSystem();
+    ap.begin();
     state = AUTO;
     // Servo setup
     myServo.attach(servoPin, 900, 2000);  
@@ -66,10 +68,9 @@ void setup() {
     // Ultrasonic setup
     pinMode(trigPinA, OUTPUT);
     pinMode(echoPinA, INPUT);
-
     pinMode(trigPinB, OUTPUT);
     pinMode(echoPinB, INPUT);
-
+    
     //Motor Setup
     pinMode(motorDriverPin1, OUTPUT);
     pinMode(motorDriverPin2, OUTPUT);
@@ -77,7 +78,7 @@ void setup() {
     digitalWrite(motorDriverPin2, LOW);
 
     pinMode(encoderPinA, INPUT_PULLUP);
-//    attachInterrupt(digitalPinToInterrupt(encoderPinA), onPulse, RISING);
+    attachInterrupt(digitalPinToInterrupt(encoderPinA), onPulse, RISING);
 
     xTaskCreatePinnedToCore(networkTask,
         "NetworkTask",
@@ -87,6 +88,7 @@ void setup() {
         NULL,
         0 // run on core 0
     );
+
 }
 
 // ============================
@@ -95,14 +97,14 @@ void setup() {
 void networkTask(void *parameter) {
   for (;;) {
     WiFiClient client = ap.getClient();
-    webHandler.handleClient(client, bridgeSystem);
+    webHandler.handleClient(client, *bridgeSystem);
     vTaskDelay(pdMS_TO_TICKS(1));
   }
 }
 
 //TODO Add transitioning button states
 void loop(){
-  if(bridgeSystem.override.getButton() == 1) {
+  if(bridgeSystem->override.getButton() == 1) {
     state = MANUAL;
   }else {
     state = AUTO;
@@ -116,6 +118,7 @@ void loop(){
       bridgeManual();
       break;
   }
+  delay(500);
 }
 
 void bridgeAuto() {
@@ -127,50 +130,48 @@ void bridgeAuto() {
     Serial.print("Sensor A: ");
     if (distanceA == -1) Serial.print("No echo");
     else {
-        bridgeSystem.ultra0.updateDist(distanceA); //Critical
+        bridgeSystem->ultra0.updateDist(distanceA); //Critical
         Serial.print(String(distanceA) + " cm  --> Object detected! ");
     }
 
     Serial.print(" | Sensor B: ");
     if (distanceB == -1) Serial.print("No echo");
     else {
-        bridgeSystem.ultra1.updateDist(distanceB); //Critical
+        bridgeSystem->ultra1.updateDist(distanceB); //Critical
         Serial.print(String(distanceB) + " cm  --> Object detected! ");
     }
 
     // Detection condition (within 20cm)
     if ((distanceA > 0 && distanceA <= 20) || (distanceB > 0 && distanceB <= 20)) {
         moveServoSmooth(0);  // close gate slowly
-        bridgeSystem.gate.close();
+        bridgeSystem->gate.close();
     } else {
         moveServoSmooth(90); // open gate slowly
-        bridgeSystem.gate.open();
+        bridgeSystem->gate.open();
     }
-
+    
     //Motor Functionality
     if(mechanismState) {
         MotorOpeningSequence();
-        bridgeSystem.mechanism.lower();
+        bridgeSystem->mechanism.lower();
     } else {
         MotorClosingSequence();
-        bridgeSystem.mechanism.raise();
+        bridgeSystem->mechanism.raise();
     }
-    delay(100); // update every 0.1s
 }
 
 void bridgeManual() {
-  if(bridgeSystem.gate.getButton() == 1){
+  if(bridgeSystem->gate.getButton() == 1){
       moveServoSmooth(90);  // open gate slowly
   }else {
       moveServoSmooth(0);  // close gate slowly
   }
 
-  if(bridgeSystem.mechanism.getButton() == 1){
+  if(bridgeSystem->mechanism.getButton() == 1){
       MotorOpeningSequence(); //Open bridge 5s
   }else {
       MotorClosingSequence(); //Close bridge 5s
   }
-  delay(100); // update every 0.1s
 }
 
 // Function to read ultrasonic distance
@@ -193,13 +194,13 @@ void moveServoSmooth(int targetPos) {
 
     if (targetPos > gatePos) {
         for (int pos = gatePos; pos <= targetPos; pos++) {
-        myServo.write(pos);
-        delay(15);  // speed of motion
+          myServo.write(pos);
+          delay(15);  // speed of motion
         }
     } else {
         for (int pos = gatePos; pos >= targetPos; pos--) {
-        myServo.write(pos);
-        delay(15);  // speed of motion
+          myServo.write(pos);
+          delay(15);  // speed of motion
         }
     }
     gatePos = targetPos;
@@ -238,7 +239,7 @@ void IRAM_ATTR onPulse() {
 }
 
 void printRPM() {
-  /*  //calculate and print RPM every second while motor runs
+    //calculate and print RPM every second while motor runs
     static unsigned long lastTime = 0;
     unsigned long now = millis();
     if(now - lastTime >= 1000) {
@@ -256,5 +257,5 @@ void printRPM() {
         Serial.println(rpm, 2);
 
         lastTime = now;
-    }  */
+    }
 }
