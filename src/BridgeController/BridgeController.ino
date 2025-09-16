@@ -150,11 +150,11 @@ void bridgeAuto() {
     
     //Motor Functionality
     if(mechanismState) {
-        MotorOpeningSequence();
         bridgeSystem->mechanism.lower();
+        MotorOpeningSequence();
     } else {
-        MotorClosingSequence();
         bridgeSystem->mechanism.raise();
+        MotorClosingSequence();
     }
 }
 
@@ -205,6 +205,7 @@ void moveServoSmooth(int targetPos) {
 }
 
 void MotorOpeningSequence(){ 
+    if(!mechanismState) return;
     Serial.println("Opening sequence (Forward)");
     unsigned long startTime = millis();
     while(millis() - startTime < duration) {
@@ -219,6 +220,7 @@ void MotorOpeningSequence(){
 }
 
 void MotorClosingSequence(){
+    if(mechanismState) return;
     Serial.println("Closing sequence (Backwards)");
     unsigned long startTime = millis();
     while(millis() - startTime < duration) {
