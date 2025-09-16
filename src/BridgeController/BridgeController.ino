@@ -150,10 +150,10 @@ void bridgeAuto() {
     
     //Motor Functionality
     if(mechanismState) {
-        bridgeSystem->mechanism.lower();
+        bridgeSystem->mechanism.raise();
         MotorOpeningSequence();
     } else {
-        bridgeSystem->mechanism.raise();
+        bridgeSystem->mechanism.lower();
         MotorClosingSequence();
     }
 }
