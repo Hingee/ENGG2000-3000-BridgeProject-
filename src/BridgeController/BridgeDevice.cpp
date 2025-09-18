@@ -8,9 +8,27 @@ BridgeDevice::BridgeDevice(String n, String initState, int b, String* ps) {
     possibleStates = ps;
     mutex = xSemaphoreCreateMutex();
     assert(mutex);
+
+    if (mutex == NULL) {
+      Serial.println("ERROR: mutex creation FAILED in BridgeDevice ctor!");
+      // Optionally halt here so you can see the message:
+      while (1) { delay(1000); }
+    } else {
+      Serial.println("BridgeDevice: mutex created OK for " + name);
+    }
 }
-void BridgeDevice::setState(String s) { state = s; }
-String BridgeDevice::getState() { return state; }
+void BridgeDevice::setState(String s) { 
+  xSemaphoreTake(mutex, portMAX_DELAY);
+  state = s; 
+  xSemaphoreGive(mutex);
+}
+String BridgeDevice::getState() { 
+  String temp;
+  xSemaphoreTake(mutex, portMAX_DELAY);
+  temp = state; 
+  xSemaphoreGive(mutex);
+  return temp;
+}
 void BridgeDevice::setButton(int b) {  
     xSemaphoreTake(mutex, portMAX_DELAY);
     buttonState = b; 
@@ -30,16 +48,12 @@ String BridgeDevice::getPosState(int i){ return possibleStates[i]; }
 static String gateStates[] = {"Open", "Close"};
 Gate::Gate() : BridgeDevice("Gate", "Closed", 0, gateStates) {}
 void Gate::open()  { 
-    xSemaphoreTake(mutex, portMAX_DELAY);
-    state = "Opened"; 
-    xSemaphoreGive(mutex);
+    setState("Opened");
     setButton(1);
     Serial.println("Opening gate");
 }
 void Gate::close() { 
-    xSemaphoreTake(mutex, portMAX_DELAY);
-    state = "Closed"; 
-    xSemaphoreGive(mutex);
+    setState("Closed");
     setButton(0); 
     Serial.println("Closing gate");
 }
@@ -60,8 +74,16 @@ void Light::turnYellow() { state = "Yellow"; setButton(2); Serial.println(name +
 //Bridge Mechanism Device Child Class
 static String mechanismStates[] = {"Raise", "Lower"};
 BridgeMechanism::BridgeMechanism() : BridgeDevice("Bridge_Mechanism", "Lowered", 0, mechanismStates) {}
-void BridgeMechanism::raise() { state = "Raised"; setButton(1); Serial.println("Bridge Raised"); }
-void BridgeMechanism::lower() { state = "Lowered"; setButton(0); Serial.println("Bridge Lowered"); }
+void BridgeMechanism::raise() { 
+  setState("Raised");
+  setButton(1); 
+  Serial.println("Bridge Raised"); 
+}
+void BridgeMechanism::lower() { 
+  setState("Lowered");
+  setButton(0); 
+  Serial.println("Bridge Lowered"); 
+}
 
 //Fake device to implement a flip override
 static String overrideStates[] = {"On", "Off"};
