@@ -20,12 +20,13 @@ std::string runType = rSC;
 static int motorDriverPin1 = 27; 
 static int motorDriverPin2 = 26; 
 int duration = 5000; //1000 is a second
-bool Direction = true; //true forward, false backwards
+int totalRotations = 0; 
 
 //Encoder
 const int encoderPinA = 34;
 volatile unsigned long pulseCount = 0;
-const int pulsesPerRevolution = 374;
+const int pulsesPerRevolution = 700; //change this in main
+
 
 void IRAM_ATTR onPulse();
 
@@ -50,13 +51,11 @@ void loop() {
         break;
     case("runMotorClockwise"):
         Serial.println("Running Clockwise");
-        digitalWrite(motorDriverPin1, LOW);
-        digitalWrite(motorDriverPin2, HIGH);
+        runMotorClockwise();
         break;
     case("runMotorAntiClockwise"):
         Serial.println("Running Anti-Clockwise");
-        digitalWrite(motorDriverPin1, HIGH);
-        digitalWrite(motorDriverPin2, LOW);
+        runMotorAntiClockwise();
         break;
     default:
         Serial.println("Choose a mode");
@@ -64,25 +63,45 @@ void loop() {
     }
 }
 
+void runMotorClockwise() { //need to change the pin order in main
+    digitalWrite(motorDriverPin1, HIGH);
+    digitalWrite(motorDriverPin2, LOW);
+}
+
+void runMotorAntiClockwise() {
+    digitalWrite(motorDriverPin1, LOW);
+    digitalWrite(motorDriverPin2, HIGH);
+}
 
 
-void printRPM() {
-    static unsigned long lastTime = 0;
-    unsigned long now = millis();
-    if(now - lastTime >= 1000) {
-        noInterrupts();
-        unsigned long pulses = pulseCount;
-        pulseCount = 0;
-        interrupts();
+void syncCheck() {
+    long int time = millis();
+    bool direction = true;
+    int prevTime = 0;
+    int endTime = 10000;
 
-        float revolutions = (float)pulses / pulsesPerRevolution;
-        float rpm = revolutions * 60.0;
+    //infinite loop
+    while(true) {
+        while(time - prev1 <= endTime) {
+            if(direction) {runMotorClockwise();} 
+            else {runMotorAntiClockwise();}
+            if(time - prev2 <= 1000) { //every second check
+                noInterrupts();
+                unsigned long pulses = pulseCount;
+                pulseCount = 0;
+                interrupts();
+                float revolutions = (float) pulses / pulsesPerRevolution;
+                totalRotations += revolutions; 
+                prev2 = time;
+            } 
+        }
+        Serial.println("Opening sequence of " + time - prev1/1000 + " seconds done in " + totalRotations + " revolutions.");
+        totalRotations = 0;
+        direction = !direction
+        prev1 = time;       
 
-        Serial.print("Pulses/sec: ");
-        Serial.print(pulses);
-        Serial.print("  |  RPM: ");
-        Serial.println(rpm, 2);
-
-        lastTime = now;
-    }    
+        //has to be a different part completely for reverse as we are counting down
+        //the revolutions - this will be super close to the actual procedure.
+        endTime += 10000;
+    }
 }
