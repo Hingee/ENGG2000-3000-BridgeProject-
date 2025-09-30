@@ -21,7 +21,7 @@ bool Direction = true; //true forward, false backwards
 //Encoder
 const int encoderPinA = 34;
 volatile unsigned long pulseCount = 0;
-const int pulsesPerRevolution = 374; //may need adjusting
+const int pulsesPerRevolution = 374;
 
 // Servo setup
 Servo myServo;
@@ -211,7 +211,7 @@ void MotorOpeningSequence(){
     while(millis() - startTime < duration) {
         digitalWrite(motorDriverPin1, LOW); 
         digitalWrite(motorDriverPin2, HIGH); 
-        printRPM();
+     //   printRPM();
         delay(1);  // Let the watchdog breathe
     }
     digitalWrite(motorDriverPin1, LOW);
@@ -226,7 +226,7 @@ void MotorClosingSequence(){
     while(millis() - startTime < duration) {
         digitalWrite(motorDriverPin1, HIGH);
         digitalWrite(motorDriverPin2, LOW);
-        printRPM();
+      //  printRPM();
         delay(1);  // Let the watchdog breathe
     }
     digitalWrite(motorDriverPin1, LOW);
@@ -238,6 +238,7 @@ void IRAM_ATTR onPulse() {
   pulseCount++; //count pulses
 }
 
+/*
 void printRPM() {
     //calculate and print RPM every second while motor runs
     static unsigned long lastTime = 0;
@@ -257,5 +258,6 @@ void printRPM() {
         Serial.println(rpm, 2);
 
         lastTime = now;
-    }
+    }    
 }
+*/
