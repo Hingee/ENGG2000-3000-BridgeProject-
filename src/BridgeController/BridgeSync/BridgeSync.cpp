@@ -54,16 +54,50 @@ void loop() {
     } else {
         Serial.println("Choose a mode");
     }
+//note to add a runUntil method (based on the amount of revolutions it needs to do to be manually reset if disconnected from power and it forgets its position)
 }
+
 
 void runMotorClockwise() { //need to change the pin order in main
     digitalWrite(motorDriverPin1, HIGH);
     digitalWrite(motorDriverPin2, LOW);
+
+    long prev = 0;
+    if(millis() - prev <= 1000) {
+        noInterrupts();
+        unsigned long pulses = pulseCount;
+        pulseCount = 0;
+        interrupts();
+        float revolutions = (float) pulses / pulsesPerRevolution;
+        float rpm = revolutions * 60.0;
+        totalRotations += revolutions; 
+        Serial.print("Live RPM: ");
+        Serial.print(rpm, 2);
+        Serial.print(" | Revolutions: ");
+        Serial.println(revolutions, 2);
+        prev = millis();  
+    }
 }
 
 void runMotorAntiClockwise() {
     digitalWrite(motorDriverPin1, LOW);
     digitalWrite(motorDriverPin2, HIGH);
+    
+    long prev = 0;
+    if(millis() - prev <= 1000) {
+        noInterrupts();
+        unsigned long pulses = pulseCount;
+        pulseCount = 0;
+        interrupts();
+        float revolutions = (float) pulses / pulsesPerRevolution;
+        float rpm = revolutions * 60.0;
+        totalRotations += revolutions; 
+        Serial.print("Live RPM: ");
+        Serial.print(rpm, 2);
+        Serial.print(" | Revolutions: ");
+        Serial.println(revolutions, 2);
+        prev = millis();  
+    }
 }
 
 void haltMotor() {
@@ -72,37 +106,26 @@ void haltMotor() {
 }
 
 void syncCheck() {
-    long prev1 = 0;
-    long prev2 = 0;
+    long prevAlt = 0;
     int endTime = 10000;
 
     //infinite loop
     while(true) {
-        while(millis() - prev1 <= endTime) {
+        //initially run for 10 seconds
+        while(millis() - prevAlt <= endTime) {
             runMotorClockwise();
-            if(millis() - prev2 <= 1000) {
-                noInterrupts();
-                unsigned long pulses = pulseCount;
-                pulseCount = 0;
-                interrupts();
-                float revolutions = (float) pulses / pulsesPerRevolution;
-                float rpm = revolutions * 60.0;
-                totalRotations += revolutions; 
-                Serial.print("Live RPM: ");
-                Serial.print(rpm, 2);
-                prev2 = millis();
-            } 
         }
 
         haltMotor();
+        Serial.println();
         Serial.print("Opening sequence of ");
-        Serial.print((millis() - prev1) / 1000);
+        Serial.print((millis() - prevAlt) / 1000);
         Serial.print(" seconds done in ");
         Serial.print(totalRotations);
         Serial.println(" revolutions.");
         totalRotations = 0;
-        prev1 = millis();   
-        delay(2000);
+        prevAlt = millis();   
+        delay(2000); //chill out for a sec
 
         Serial.println("Lowering Bridge back to neutral state.");
         Serial.println("Check for consistency alignment.");
@@ -119,7 +142,7 @@ void syncCheck() {
         }
 
         haltMotor();
-        totalRotations = 0;
-        endTime += 10000; //add 10 secs to opening
+        totalRotations = 0; //reset count
+        endTime += 10000; //add 10 secs for next sequence
     }
 }
