@@ -11,8 +11,8 @@
 // Motor setup
 static int motorDriverPin1 = 27; //27 - S3 will have error from this
 static int motorDriverPin2 = 26; //26 - S3 will have error from this
-float revolutionsToOpen = 50; //IMPORTANT VARIABLE (change based on BridgeSync estimation, and will need to be different for each bridge)
-float revolutionsCurrent = 0; //current position in revs
+float revolutionsToOpen = 50.0; //IMPORTANT VARIABLE (change based on BridgeSync estimation, and will need to be different for each bridge)
+float revolutionsCurrent = 0.0; //current position in revs
 
 // Motor Encoder
 const int encoderPinA = 34;
@@ -129,6 +129,13 @@ void bridgeAuto() {
     distanceA = readUltrasonic(trigPinA, echoPinA);
     distanceB = readUltrasonic(trigPinB, echoPinB);
 
+    //Check revs
+    noInterrupts();
+    unsigned long pulses = pulseCount;
+    pulseCount = 0;
+    interrupts();
+    revolutionsCurrent += (float) pulses / pulsesPerRevolution;
+
     Serial.print("Sensor A: ");
     if (distanceA == -1) Serial.print("No echo");
     else {
@@ -151,6 +158,7 @@ void bridgeAuto() {
         moveServoSmooth(90); // open gate slowly
         bridgeSystem->gate.open();
     }
+    //polling states called from here
     
     //Motor Functionality
     switch(mechanismState) {
@@ -218,8 +226,8 @@ void moveServoSmooth(int targetPos) {
 void MotorOpeningSequence(){ 
     if(mechanismState == IDLE || mechanismState == CLOSING) return;
 //  Serial.println("Initiate opening sequence."); //if polling this will run every time (move this to the loop)
-    digitalWrite(motorDriverPin1, LOW); 
-    digitalWrite(motorDriverPin2, HIGH); 
+    digitalWrite(motorDriverPin1, HIGH); //clockwise 
+    digitalWrite(motorDriverPin2, LOW); 
     delay(1);  //Let the watchdog breathe
 //need to alert other systems of the completion of the bridge, or a global method that constantly checks if the bridge is done. Maybe in these methods then.
 }
@@ -227,8 +235,8 @@ void MotorOpeningSequence(){
 void MotorClosingSequence(){
     if(mechanismState == IDLE || mechanismState == OPENING) return;
   //Serial.println("Initiate closing sequence");
-    digitalWrite(motorDriverPin1, HIGH);
-    digitalWrite(motorDriverPin2, LOW);
+    digitalWrite(motorDriverPin1, LOW); //anti-clockwise
+    digitalWrite(motorDriverPin2, HIGH);
     delay(1);  // Let the watchdog breathe
 }
 
