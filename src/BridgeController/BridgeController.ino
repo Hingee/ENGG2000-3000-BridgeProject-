@@ -8,25 +8,25 @@
 #include "WebServerHandler.h"
 #include "BridgeSystem.h"
 
-//Bridge Motor Automation Initialisation
-//the bridge now needs a 3rd state, needs to be an enum now
-bool mechanismState = true; //true closed, false open
-bool runningbridge = true;
-
-//Motor specific
+// Motor setup
 static int motorDriverPin1 = 27; //27 - S3 will have error from this
 static int motorDriverPin2 = 26; //26 - S3 will have error from this
 float revolutionsToOpen = 50; //IMPORTANT VARIABLE (change based on BridgeSync estimation, and will need to be different for each bridge)
-//int duration = 5000; //1000 is a second
-float revolutionsCurrent = 0; //Current Live Position 
-//bool Direction = true; //true forward, false backwards
+float revolutionsCurrent = 0; //current position in revs
 
-/* encoder is more of a troubleshooting method for the motor
-//Encoder
+// Motor Encoder
 const int encoderPinA = 34;
 volatile unsigned long pulseCount = 0;
 const int pulsesPerRevolution = 700;
-*/
+
+// Bridge Motor Automation Initialisation
+enum MechanismBridgeState {
+  OPENING,
+  CLOSING,
+  IDLE,
+};
+MechanismBridgeState = mechanismState;
+mechanismState = IDLE; //move into loop later
 
 // Servo setup
 Servo myServo;
@@ -44,7 +44,7 @@ int servoPin = 13;  // GPIO13 for servo
 int distanceA, distanceB;
 int gatePos = 90;  // Start open (upright)
 
-//Network Variables
+// Network Variables
 APHandler ap(IPAddress(192,168,1,1), IPAddress(192,168,1,1), IPAddress(255,255,255,0));
 WebServerHandler webHandler;
 BridgeSystem* bridgeSystem = nullptr;
@@ -54,7 +54,6 @@ enum BridgeState {
   MANUAL,
   AUTO,
 };
-
 BridgeState state;
 
 void setup() {
@@ -64,11 +63,12 @@ void setup() {
     bridgeSystem = new BridgeSystem();
     ap.begin();
     state = AUTO;
-    // Servo setup
+
+    //Servo setup
     myServo.attach(servoPin, 900, 2000);  
     myServo.write(gatePos);
 
-    // Ultrasonic setup
+    //Ultrasonic setup
     pinMode(trigPinA, OUTPUT);
     pinMode(echoPinA, INPUT);
     pinMode(trigPinB, OUTPUT);
@@ -80,10 +80,10 @@ void setup() {
     digitalWrite(motorDriverPin1, LOW);
     digitalWrite(motorDriverPin2, LOW);
 
-    /* encoder related
+    //Encoder Setup
     pinMode(encoderPinA, INPUT_PULLUP);
     attachInterrupt(digitalPinToInterrupt(encoderPinA), onPulse, RISING);
-*/
+
     xTaskCreatePinnedToCore(networkTask,
         "NetworkTask",
         16384,
@@ -153,12 +153,19 @@ void bridgeAuto() {
     }
     
     //Motor Functionality
-    if(mechanismState) {
+    switch(mechanismState) {
+      case OPENING:
         bridgeSystem->mechanism.raise();
         MotorOpeningSequence();
-    } else {
+        break;
+      case CLOSING:
         bridgeSystem->mechanism.lower();
         MotorClosingSequence();
+        break;
+      case IDLE: //default case. Also can be treated as the HALT case to stop the bridge.
+        //bridgeSystem->mechanism.stop(); or whatever u want to call it
+        haltMotor();
+        break;
     }
 }
 
@@ -169,7 +176,7 @@ void bridgeManual() {
       moveServoSmooth(0);  // close gate slowly
   }
 
-  if(bridgeSystem->mechanism.getButton() == 1){
+  if(bridgeSystem->mechanism.getButton() == 1){ //needs to be adjust for new state
       MotorOpeningSequence(); //Open bridge 5s
   }else {
       MotorClosingSequence(); //Close bridge 5s
@@ -194,7 +201,7 @@ int readUltrasonic(int trigPin, int echoPin) {
 void moveServoSmooth(int targetPos) {
     if (gatePos == targetPos) return;
 
-    if (targetPos > gatePos) {
+    if (targetPos > gatePos) { //Needs to be converting to poll from loop
         for (int pos = gatePos; pos <= targetPos; pos++) {
           myServo.write(pos);
           delay(15);  // speed of motion
@@ -209,43 +216,31 @@ void moveServoSmooth(int targetPos) {
 }
 
 void MotorOpeningSequence(){ 
-    if(!mechanismState) return;
-    Serial.println("Opening sequence (Forward)");
-   // unsigned long startTime = millis();
-  //  while(millis() - startTime < duration) {
-        digitalWrite(motorDriverPin1, LOW); 
-        digitalWrite(motorDriverPin2, HIGH); 
-     //   printRPM();
-        delay(1);  // Let the watchdog breathe
-  //  }
-  //  digitalWrite(motorDriverPin1, LOW);
-  //  digitalWrite(motorDriverPin2, LOW);
-    mechanismState = false; //maybe need to change if polling this from void loop
-    //need to alert other systems of the completion of the bridge
+    if(mechanismState == IDLE || mechanismState == CLOSING) return;
+//  Serial.println("Initiate opening sequence."); //if polling this will run every time (move this to the loop)
+    digitalWrite(motorDriverPin1, LOW); 
+    digitalWrite(motorDriverPin2, HIGH); 
+    delay(1);  //Let the watchdog breathe
+//need to alert other systems of the completion of the bridge, or a global method that constantly checks if the bridge is done. Maybe in these methods then.
 }
 
 void MotorClosingSequence(){
-    if(mechanismState) return;
-    Serial.println("Closing sequence (Backwards)");
-    //unsigned long startTime = millis();
-   // while(millis() - startTime < duration) {
-        digitalWrite(motorDriverPin1, HIGH);
-        digitalWrite(motorDriverPin2, LOW);
-      //  printRPM();
-        delay(1);  // Let the watchdog breathe
-  //  }
- //   digitalWrite(motorDriverPin1, LOW);
-  //  digitalWrite(motorDriverPin2, LOW);
-    mechanismState = true; //same as prev
+    if(mechanismState == IDLE || mechanismState == OPENING) return;
+  //Serial.println("Initiate closing sequence");
+    digitalWrite(motorDriverPin1, HIGH);
+    digitalWrite(motorDriverPin2, LOW);
+    delay(1);  // Let the watchdog breathe
 }
 
 //new method, may need to be added to the RUI
 void haltMotor() {
+  if(mechanismState == CLOSING || mechanismState == OPENING) return;
+//"motor stopped"
   digitalWrite(motorDriverPin1, LOW);
-  digitalWrite(motorDriverPin2, LOW);  
+  digitalWrite(motorDriverPin2, LOW); 
+  delay(1);
 }
-//global method for checking positions?
 
 void IRAM_ATTR onPulse() {
-  pulseCount++; //count pulses
+  pulseCount++;
 }
