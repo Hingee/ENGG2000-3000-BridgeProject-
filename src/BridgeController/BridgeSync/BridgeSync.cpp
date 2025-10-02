@@ -15,7 +15,6 @@ int runType = 0;
 //Motor specific
 static int motorDriverPin1 = 27; 
 static int motorDriverPin2 = 26; 
-int duration = 5000; //1000 is a second
 float totalRotations = 0.0; 
 
 //Encoder
@@ -82,7 +81,7 @@ void runMotorClockwise() { //need to change the pin order in main
 void runMotorAntiClockwise() {
     digitalWrite(motorDriverPin1, LOW);
     digitalWrite(motorDriverPin2, HIGH);
-    
+
     long prev = 0;
     if(millis() - prev <= 1000) {
         noInterrupts();

@@ -9,19 +9,24 @@
 #include "BridgeSystem.h"
 
 //Bridge Motor Automation Initialisation
+//the bridge now needs a 3rd state, needs to be an enum now
 bool mechanismState = true; //true closed, false open
 bool runningbridge = true;
 
 //Motor specific
 static int motorDriverPin1 = 27; //27 - S3 will have error from this
 static int motorDriverPin2 = 26; //26 - S3 will have error from this
-int duration = 5000; //1000 is a second
-bool Direction = true; //true forward, false backwards
+float revolutionsToOpen = 50; //IMPORTANT VARIABLE (change based on BridgeSync estimation, and will need to be different for each bridge)
+//int duration = 5000; //1000 is a second
+float revolutionsCurrent = 0; //Current Live Position 
+//bool Direction = true; //true forward, false backwards
 
+/* encoder is more of a troubleshooting method for the motor
 //Encoder
 const int encoderPinA = 34;
 volatile unsigned long pulseCount = 0;
-const int pulsesPerRevolution = 374;
+const int pulsesPerRevolution = 700;
+*/
 
 // Servo setup
 Servo myServo;
@@ -52,8 +57,6 @@ enum BridgeState {
 
 BridgeState state;
 
-void IRAM_ATTR onPulse();
-
 void setup() {
     Serial.begin(115200);
     delay(100);
@@ -77,9 +80,10 @@ void setup() {
     digitalWrite(motorDriverPin1, LOW);
     digitalWrite(motorDriverPin2, LOW);
 
+    /* encoder related
     pinMode(encoderPinA, INPUT_PULLUP);
     attachInterrupt(digitalPinToInterrupt(encoderPinA), onPulse, RISING);
-
+*/
     xTaskCreatePinnedToCore(networkTask,
         "NetworkTask",
         16384,
@@ -106,7 +110,7 @@ void networkTask(void *parameter) {
 void loop(){
   if(bridgeSystem->override.getButton() == 1) {
     state = MANUAL;
-  }else {
+  } else {
     state = AUTO;
   }
   
@@ -207,57 +211,41 @@ void moveServoSmooth(int targetPos) {
 void MotorOpeningSequence(){ 
     if(!mechanismState) return;
     Serial.println("Opening sequence (Forward)");
-    unsigned long startTime = millis();
-    while(millis() - startTime < duration) {
+   // unsigned long startTime = millis();
+  //  while(millis() - startTime < duration) {
         digitalWrite(motorDriverPin1, LOW); 
         digitalWrite(motorDriverPin2, HIGH); 
      //   printRPM();
         delay(1);  // Let the watchdog breathe
-    }
-    digitalWrite(motorDriverPin1, LOW);
-    digitalWrite(motorDriverPin2, LOW);
-    mechanismState = false;
+  //  }
+  //  digitalWrite(motorDriverPin1, LOW);
+  //  digitalWrite(motorDriverPin2, LOW);
+    mechanismState = false; //maybe need to change if polling this from void loop
+    //need to alert other systems of the completion of the bridge
 }
 
 void MotorClosingSequence(){
     if(mechanismState) return;
     Serial.println("Closing sequence (Backwards)");
-    unsigned long startTime = millis();
-    while(millis() - startTime < duration) {
+    //unsigned long startTime = millis();
+   // while(millis() - startTime < duration) {
         digitalWrite(motorDriverPin1, HIGH);
         digitalWrite(motorDriverPin2, LOW);
       //  printRPM();
         delay(1);  // Let the watchdog breathe
-    }
-    digitalWrite(motorDriverPin1, LOW);
-    digitalWrite(motorDriverPin2, LOW);
-    mechanismState = true;
+  //  }
+ //   digitalWrite(motorDriverPin1, LOW);
+  //  digitalWrite(motorDriverPin2, LOW);
+    mechanismState = true; //same as prev
 }
+
+//new method, may need to be added to the RUI
+void haltMotor() {
+  digitalWrite(motorDriverPin1, LOW);
+  digitalWrite(motorDriverPin2, LOW);  
+}
+//global method for checking positions?
 
 void IRAM_ATTR onPulse() {
   pulseCount++; //count pulses
 }
-
-/*
-void printRPM() {
-    //calculate and print RPM every second while motor runs
-    static unsigned long lastTime = 0;
-    unsigned long now = millis();
-    if(now - lastTime >= 1000) {
-        noInterrupts();
-        unsigned long pulses = pulseCount;
-        pulseCount = 0;
-        interrupts();
-
-        float revolutions = (float)pulses / pulsesPerRevolution;
-        float rpm = revolutions * 60.0;
-
-        Serial.print("Pulses/sec: ");
-        Serial.print(pulses);
-        Serial.print("  |  RPM: ");
-        Serial.println(rpm, 2);
-
-        lastTime = now;
-    }    
-}
-*/
