@@ -20,15 +20,13 @@
 #define echoPinB 18
 
 //Motor specific
-static int motorDriverPin1 = 40; //27 - S3 will have error from this
-static int motorDriverPin2 = 41; //26 - S3 will have error from this
-int duration = 5000; //1000 is a second
-bool mechanismState = true; //true closed, false open
+#define motorDriverPin1 40; //27 - S3 will have error from this
+#define motorDriverPin2 41; //26 - S3 will have error from this
+#define duration 5000; //1000 is a second
 
 //Encoder
-const int encoderPinA = 34;
-volatile unsigned long pulseCount = 0;
-const int pulsesPerRevolution = 374; //may need adjusting
+#define encoderPinA 34;
+#define pulsesPerRevolution = 374; //may need adjusting
 
 //Network Objects
 APHandler ap(IPAddress(192,168,1,1), IPAddress(192,168,1,1), IPAddress(255,255,255,0));
@@ -61,14 +59,7 @@ void setup() {
     pinMode(trigPinB, OUTPUT);
     pinMode(echoPinB, INPUT);
     
-    //Motor Setup
-    pinMode(motorDriverPin1, OUTPUT);
-    pinMode(motorDriverPin2, OUTPUT);
-    digitalWrite(motorDriverPin1, LOW);
-    digitalWrite(motorDriverPin2, LOW);
-
-    pinMode(encoderPinA, INPUT_PULLUP);
-    attachInterrupt(digitalPinToInterrupt(encoderPinA), onPulse, RISING);
+    bridgeSystem->mechanism.init(motorDriverPin1, motorDriverPin2, encoderPinA, duration, pulsesPerRevolution);
 
     xTaskCreatePinnedToCore(networkTask,
         "NetworkTask",
@@ -119,112 +110,56 @@ void bridgeAuto() {
   
     // Detection condition (within 20cm)
     if (distanceA > 0 && distanceA <= 20) {
-        bridgeSystem->gateF.moveServoSmooth(0);  // close gate slowly
         bridgeSystem->gateF.close();
+        bridgeSystem->gateF.servoClose();  // close gate slowly
     } else {
-        bridgeSystem->gateF.moveServoSmooth(90);  // close gate slowly
         bridgeSystem->gateF.open();
+        bridgeSystem->gateF.servoOpen();  // close gate slowly
     }
 
      // Detection condition (within 20cm)
     if (distanceB > 0 && distanceB <= 20) {
-        bridgeSystem->gateB.moveServoSmooth(0);  // close gate slowly
         bridgeSystem->gateB.close();
+        bridgeSystem->gateB.servoClose();  // close gate slowly
     } else {
-        bridgeSystem->gateB.moveServoSmooth(90);  // close gate slowly
         bridgeSystem->gateB.open();
+        bridgeSystem->gateB.servoOpen();  // close gate slowly
     }
 
     //Motor Functionality
     if(mechanismState) {
         bridgeSystem->mechanism.raise();
-        MotorOpeningSequence();
+        bridgeSystem->mechanism.raiseSequence();
     } else {
         bridgeSystem->mechanism.lower();
-        MotorClosingSequence();
+        bridgeSystem->mechanism.lowerSequence();
     }
 }
 
 void bridgeManual() {
   if(bridgeSystem->gateF.getButton() == 1){
-      bridgeSystem->gateF.moveServoSmooth(90);  // open gate slowly
       bridgeSystem->gateF.close();
+      bridgeSystem->gateF.servoOpen();  // open gate slowly
   }else {
-      bridgeSystem->gateF.moveServoSmooth(0);  // close gate slowly
       bridgeSystem->gateF.open();
+      bridgeSystem->gateF.servoClose();  // close gate slowly
   }
 
   if(bridgeSystem->gateB.getButton() == 1){
-      bridgeSystem->gateB.moveServoSmooth(90); // open gate slowly
       bridgeSystem->gateB.close();
+      bridgeSystem->gateB.servoOpen(); // open gate slowly
   }else {
-      bridgeSystem->gateB.moveServoSmooth(0);  // close gate slowly
       bridgeSystem->gateB.open();
+      bridgeSystem->gateB.servoClose();  // close gate slowly
   }
 
   if(bridgeSystem->mechanism.getButton() == 1){
       bridgeSystem->mechanism.raise();
-      MotorOpeningSequence(); //Open bridge 5s
+      bridgeSystem->mechanism.raiseSequence();
   }else {
       bridgeSystem->mechanism.lower();
-      MotorClosingSequence(); //Close bridge 5s
+      bridgeSystem->mechanism.lowerSequence();
   }
-}
-
-void MotorOpeningSequence(){ 
-    if(!mechanismState) return;
-    Serial.println("Opening sequence (Forward)");
-    unsigned long startTime = millis();
-    while(millis() - startTime < duration) {
-        digitalWrite(motorDriverPin1, LOW); 
-        digitalWrite(motorDriverPin2, HIGH); 
-        printRPM();
-        delay(1);  // Let the watchdog breathe
-    }
-    digitalWrite(motorDriverPin1, LOW);
-    digitalWrite(motorDriverPin2, LOW);
-    mechanismState = false;
-}
-
-void MotorClosingSequence(){
-    if(mechanismState) return;
-    Serial.println("Closing sequence (Backwards)");
-    unsigned long startTime = millis();
-    while(millis() - startTime < duration) {
-        digitalWrite(motorDriverPin1, HIGH);
-        digitalWrite(motorDriverPin2, LOW);
-        printRPM();
-        delay(1);  // Let the watchdog breathe
-    }
-    digitalWrite(motorDriverPin1, LOW);
-    digitalWrite(motorDriverPin2, LOW);
-    mechanismState = true;
-}
-
-void IRAM_ATTR onPulse() {
-  pulseCount++; //count pulses
-}
-
-void printRPM() {
-    //calculate and print RPM every second while motor runs
-    static unsigned long lastTime = 0;
-    unsigned long now = millis();
-    if(now - lastTime >= 1000) {
-        noInterrupts();
-        unsigned long pulses = pulseCount;
-        pulseCount = 0;
-        interrupts();
-
-        float revolutions = (float)pulses / pulsesPerRevolution;
-        float rpm = revolutions * 60.0;
-
-        Serial.print("Pulses/sec: ");
-        Serial.print(pulses);
-        Serial.print("  |  RPM: ");
-        Serial.println(rpm, 2);
-
-        lastTime = now;
-    }
 }
 
 void printDist(int distanceA, int distanceB) {

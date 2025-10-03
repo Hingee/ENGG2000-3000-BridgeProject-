@@ -62,9 +62,7 @@ void WebServerHandler::sendResponse(WiFiClient& client, BridgeSystem& system) {
     if(system.override.getButton() == 1) {
       renderFlipButton(client, system.mechanism);
       renderFlipButton(client, system.alarm0);
-      renderFlipButton(client, system.alarm1);
       renderFlipButton(client, system.gateF);
-      renderFlipButton(client, system.gateB);
       renderRadioButton(client, system.trafficLights);
       renderRadioButton(client, system.bridgeLights);
     }else {
@@ -112,13 +110,8 @@ void WebServerHandler::sendSensorData(WiFiClient& client, BridgeSystem& system) 
 void WebServerHandler::renderFlipButton(WiFiClient& client, BridgeDevice& device) {
     int button = device.getButton();
     String name =  device.getName();
-    String action;
-
-    if(button == 0) {
-        action = device.getPosState(0); // first state
-    } else {
-        action = device.getPosState(1); // second state
-    }
+    String action = device.getPosState(button); // first state
+    String buttonClass = (button == 0 || button == 1) ? "button" : "button2";
 
     client.print("<p>");  
     client.print(name); 
@@ -131,7 +124,8 @@ void WebServerHandler::renderFlipButton(WiFiClient& client, BridgeDevice& device
     client.print(action);
     client.print("?ts=");
     client.print(millis());
-    client.print("\"><button class=\"button\">");
+    client.print("\"><button class=\"");
+    client.print(buttonClass);
     client.print(action);
     client.println("</button></a></p>");
 }

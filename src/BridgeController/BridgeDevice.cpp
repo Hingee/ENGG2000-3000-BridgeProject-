@@ -45,20 +45,21 @@ String BridgeDevice::getName() { return name; }
 String BridgeDevice::getPosState(int i){ return possibleStates[i]; }
 
 //Gate Device Child Class
-static String gateStates[] = {"Open", "Close"};
+static String gateStates[] = {"Open", "Close", "Opening", "Closing"};
 Gate::Gate(const String& n) : BridgeDevice(n, "Closed", 0, gateStates) {}
 void Gate::open()  { 
-    setState("Opened");
-    setButton(1);
+    setState("Opening");
+    setButton(2);
     Serial.print("Opened gate ");
     Serial.println(name);
 }
 void Gate::close() { 
-    setState("Closed");
-    setButton(0); 
+    setState("Closing");
+    setButton(3); 
     Serial.print("Closing gate ");
     Serial.println(name);
 }
+
 // Smooth servo movement
 void Gate::moveServoSmooth(int targetPos) {
     if (gatePos == targetPos) return;
@@ -76,6 +77,22 @@ void Gate::moveServoSmooth(int targetPos) {
     }
 
     gatePos = targetPos;
+}
+
+void Gate::servoClose() {
+    moveServoSmooth(0);
+    setState("Closed");
+    setButton(1); 
+    Serial.print("Closed Gate");
+    Serial.println(name);
+}
+
+void Gate::servoOpen() {
+    moveServoSmooth(90);
+    setState("Opened");
+    setButton(0); 
+    Serial.print("Opened Gate");
+    Serial.println(name);
 }
 
 void Gate::init(int pin) {
@@ -98,17 +115,72 @@ void Light::turnGreen() { state = "Green"; setButton(1); Serial.println(name + "
 void Light::turnYellow() { state = "Yellow"; setButton(2); Serial.println(name + " Yellow"); }
 
 //Bridge Mechanism Device Child Class
-static String mechanismStates[] = {"Raise", "Lower"};
+static String mechanismStates[] = {"Raise", "Lower", "Raising", "Lowering"};
 BridgeMechanism::BridgeMechanism() : BridgeDevice("Bridge_Mechanism", "Lowered", 0, mechanismStates) {}
 void BridgeMechanism::raise() { 
-  setState("Raised");
-  setButton(1); 
-  Serial.println("Bridge Raised"); 
+  setState("Raising");
+  setButton(2); 
+  Serial.println("Bridge Raising"); 
 }
 void BridgeMechanism::lower() { 
-  setState("Lowered");
-  setButton(0); 
-  Serial.println("Bridge Lowered"); 
+  setState("Lowering");
+  setButton(3); 
+  Serial.println("Bridge Lowering"); 
+}
+
+void BridgeMechanism::raiseSequence(){ 
+    if(!mechanismState) return;
+    Serial.println("Opening sequence (Forward)");
+    unsigned long startTime = millis();
+    while(millis() - startTime < duration) {
+        digitalWrite(motorDriverPin1, LOW); 
+        digitalWrite(motorDriverPin2, HIGH); 
+        delay(1);  // Let the watchdog breathe
+    }
+    digitalWrite(motorDriverPin1, LOW);
+    digitalWrite(motorDriverPin2, LOW);
+    mechanismState = false;
+
+    setState("Raised");
+    setButton(1); 
+    Serial.println("Bridge Raised"); 
+}
+
+void BridgeMechanism::lowerSequence(){
+    if(mechanismState) return;
+    Serial.println("Closing sequence (Backwards)");
+    unsigned long startTime = millis();
+    while(millis() - startTime < duration) {
+        digitalWrite(motorDriverPin1, HIGH);
+        digitalWrite(motorDriverPin2, LOW);
+        delay(1);  // Let the watchdog breathe
+    }
+    digitalWrite(motorDriverPin1, LOW);
+    digitalWrite(motorDriverPin2, LOW);
+    mechanismState = true;
+
+    setState("Lowered");
+    setButton(0); 
+    Serial.println("Bridge Lowered"); 
+}
+
+void IRAM_ATTR BridgeMechanism::onPulse() {
+  pulseCount++; //count pulses
+}
+
+void BridgeMechanism::init(int mp1, int mp2, int encPin, int dur, int pulsePerRev) {
+    //Motor Setup
+    pinMode(mp1, OUTPUT);
+    pinMode(mp2, OUTPUT);
+    digitalWrite(mp1, LOW);
+    digitalWrite(mp2, LOW);
+
+    pinMode(encPin, INPUT_PULLUP);
+
+    mechanismState = true; //true closed, false open
+    pulseCount = 0;
+    duration = dur;
+    pulsesPerRevolution = pulsePerRev;
 }
 
 //Fake device to implement a flip override

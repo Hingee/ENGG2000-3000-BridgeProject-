@@ -32,6 +32,8 @@ public:
     void open();
     void close();
     void moveServoSmooth(int targetPos);
+    void servoClose();
+    void servoOpen();
     void init(int pin);
 };
 
@@ -52,9 +54,18 @@ public:
 
 class BridgeMechanism : public BridgeDevice {
 public:
+    bool mechanismState = true; //true closed, false open
+    volatile unsigned long pulseCount = 0;
+    int duration;
+    int pulsesPerRevolution;
+
     BridgeMechanism();
     void raise();
     void lower();
+    void raiseSequence();
+    void lowerSequence();
+    void onPulse();
+    void init(int mp1, int mp2, int encPin, int dur, int pulsePerRev);
 };
 
 //Fake device to implement a flip override
