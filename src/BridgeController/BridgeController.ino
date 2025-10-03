@@ -8,7 +8,10 @@
 #include "WebServerHandler.h"
 #include "BridgeSystem.h"
 
-// Motor setup
+// Bridge Timer
+long globalTime = millis();
+
+// Motor Setup
 static int motorDriverPin1 = 27; //27 - S3 will have error from this
 static int motorDriverPin2 = 26; //26 - S3 will have error from this
 float revolutionsToOpen = 50.0; //IMPORTANT VARIABLE (change based on BridgeSync estimation, and will need to be different for each bridge)
@@ -19,30 +22,38 @@ const int encoderPinA = 34;
 volatile unsigned long pulseCount = 0;
 const int pulsesPerRevolution = 700;
 
-// Bridge Motor Automation Initialisation
+// Bridge Motor Automation States
 enum MechanismBridgeState {
   OPENING,
   CLOSING,
   IDLE,
 };
 MechanismBridgeState = mechanismState;
-mechanismState = IDLE; //move into loop later
+mechanismState = IDLE;
 
-// Servo setup
+// Servo Setup
 Servo myServo;
 int servoPin = 13;  // GPIO13 for servo
 
-// Ultrasonic sensor A (front)
+// Ultrasonic Sensor A (front)
 #define trigPinA 17
 #define echoPinA 16
 
-// Ultrasonic sensor B (back)
+// Ultrasonic Sensor B (back)
 #define trigPinB 5
 #define echoPinB 18
 
-// Variables
+// Ultrasonic Variables
 int distanceA, distanceB;
 int gatePos = 90;  // Start open (upright)
+
+// Sensor Automation States
+enum SensorScanningState {
+  SCANNING,
+  IDLE,
+}
+SensorScanningState = sensorState;
+sensorState = SCANNING;
 
 // Network Variables
 APHandler ap(IPAddress(192,168,1,1), IPAddress(192,168,1,1), IPAddress(255,255,255,0));
@@ -129,35 +140,48 @@ void bridgeAuto() {
     distanceA = readUltrasonic(trigPinA, echoPinA);
     distanceB = readUltrasonic(trigPinB, echoPinB);
 
-    //Check revs
+    //Check revs (make this a method)
     noInterrupts();
     unsigned long pulses = pulseCount;
     pulseCount = 0;
     interrupts();
     revolutionsCurrent += (float) pulses / pulsesPerRevolution;
 
-    Serial.print("Sensor A: ");
-    if (distanceA == -1) Serial.print("No echo");
-    else {
-        bridgeSystem->ultra0.updateDist(distanceA); //Critical
-        Serial.print(String(distanceA) + " cm  --> Object detected! ");
+    switch(sensorState) {
+      case SCANNING:
+
+        //Ultrasonic update distance (any detection)
+        Serial.print("Sensor A: ");
+        if (distanceA == -1) Serial.print("No echo");
+        else {
+          bridgeSystem->ultra0.updateDist(distanceA); //Critical
+          Serial.print(String(distanceA) + " cm  --> Object detected! ");
+        }
+        Serial.print(" | Sensor B: ");
+        if (distanceB == -1) Serial.print("No echo");
+        else {
+          bridgeSystem->ultra1.updateDist(distanceB); //Critical
+          Serial.print(String(distanceB) + " cm  --> Object detected! ");
+        }
+
+        // Detection condition (within 20cm)
+        if ((distanceA > 0 && distanceA <= 20) || (distanceB > 0 && distanceB <= 20)) {
+          moveServoSmooth(0);  // close gate slowly
+          bridgeSystem->gate.close();
+
+          //begin opening sequence
+        } else {
+          moveServoSmooth(90); // open gate slowly
+          bridgeSystem->gate.open();
+
+          //begin closing sequence after a period of time
+        }     
+        break;
+      case IDLE:
+        println("SENSOR: Waiting for bridge state transition...")
+        break;
     }
 
-    Serial.print(" | Sensor B: ");
-    if (distanceB == -1) Serial.print("No echo");
-    else {
-        bridgeSystem->ultra1.updateDist(distanceB); //Critical
-        Serial.print(String(distanceB) + " cm  --> Object detected! ");
-    }
-
-    // Detection condition (within 20cm)
-    if ((distanceA > 0 && distanceA <= 20) || (distanceB > 0 && distanceB <= 20)) {
-        moveServoSmooth(0);  // close gate slowly
-        bridgeSystem->gate.close();
-    } else {
-        moveServoSmooth(90); // open gate slowly
-        bridgeSystem->gate.open();
-    }
     //polling states called from here
     
     //Motor Functionality
@@ -200,8 +224,8 @@ int readUltrasonic(int trigPin, int echoPin) {
     digitalWrite(trigPin, LOW);
 
     long duration = pulseIn(echoPin, HIGH, 30000); // 30ms timeout
-    int distance = duration * 0.034 / 2;           // convert to cm
-    if (duration == 0) return -1;  // no echo
+    int distance = duration * 0.034 / 2; // convert to cm
+    if (duration == 0) return -1; // no echo
     return distance;
 }
 
