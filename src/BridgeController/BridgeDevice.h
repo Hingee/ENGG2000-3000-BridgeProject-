@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <mutex>
+#include <ESP32Servo.h>
 
 class BridgeDevice {
 protected:
@@ -23,14 +24,20 @@ public:
 
 class Gate : public BridgeDevice {
 public:
-    Gate();
+    // Servo setup
+    Servo myServo;
+    int gatePos;  // Start open (upright)
+    
+    Gate(const String& n);
     void open();
     void close();
+    void moveServoSmooth(int targetPos);
+    void init(int pin);
 };
 
 class Alarm : public BridgeDevice {
 public:
-    Alarm();
+    Alarm(const String& n);
     void activate();
     void deactivate();
 };

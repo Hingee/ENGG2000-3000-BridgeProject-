@@ -10,6 +10,20 @@ String BridgeSensor::getName() {return name; }
 
 //Ultra Sonic Sensor Child Class
 US::US() : BridgeSensor("Ultra-Sonic") { distance = 0; }
+int US::readUltrasonic(int trigPin, int echoPin) {
+    digitalWrite(trigPin, LOW);
+    delayMicroseconds(2);
+    digitalWrite(trigPin, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(trigPin, LOW);
+
+    long duration = pulseIn(echoPin, HIGH, 30000); // 30ms timeout
+    int distance = duration * 0.034 / 2;           // convert to cm
+    if (duration == 0) return -1;  // no echo
+    
+    updateDist(distance);//Critical
+    return distance;
+}
 void US::updateDist(int d) { 
     xSemaphoreTake(mutex, portMAX_DELAY);
     distance = d; 

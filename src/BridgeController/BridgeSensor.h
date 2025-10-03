@@ -18,6 +18,7 @@ protected:
     int distance;
 public:
     US();
+    int readUltrasonic(int trigPin, int echoPin);
     void updateDist(int d);
     int getDistance();
 };

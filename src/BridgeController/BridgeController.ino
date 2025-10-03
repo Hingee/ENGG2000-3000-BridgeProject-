@@ -2,30 +2,14 @@
 #include <ESP32_NOW_Serial.h>
 
 #include <Arduino.h>
-#include <ESP32Servo.h>
 
 #include "APHandler.h"
 #include "WebServerHandler.h"
 #include "BridgeSystem.h"
 
-//Bridge Motor Automation Initialisation
-bool mechanismState = true; //true closed, false open
-bool runningbridge = true;
-
-//Motor specific
-static int motorDriverPin1 = 27; //27 - S3 will have error from this
-static int motorDriverPin2 = 26; //26 - S3 will have error from this
-int duration = 5000; //1000 is a second
-bool Direction = true; //true forward, false backwards
-
-//Encoder
-const int encoderPinA = 34;
-volatile unsigned long pulseCount = 0;
-const int pulsesPerRevolution = 374; //may need adjusting
-
-// Servo setup
-Servo myServo;
-int servoPin = 13;  // GPIO13 for servo
+//Pins
+//Servo
+#define servoPin 13  // GPIO13 for servo
 
 // Ultrasonic sensor A (front)
 #define trigPinA 17
@@ -35,11 +19,18 @@ int servoPin = 13;  // GPIO13 for servo
 #define trigPinB 5
 #define echoPinB 18
 
-// Variables
-int distanceA, distanceB;
-int gatePos = 90;  // Start open (upright)
+//Motor specific
+static int motorDriverPin1 = 40; //27 - S3 will have error from this
+static int motorDriverPin2 = 41; //26 - S3 will have error from this
+int duration = 5000; //1000 is a second
+bool mechanismState = true; //true closed, false open
 
-//Network Variables
+//Encoder
+const int encoderPinA = 34;
+volatile unsigned long pulseCount = 0;
+const int pulsesPerRevolution = 374; //may need adjusting
+
+//Network Objects
 APHandler ap(IPAddress(192,168,1,1), IPAddress(192,168,1,1), IPAddress(255,255,255,0));
 WebServerHandler webHandler;
 BridgeSystem* bridgeSystem = nullptr;
@@ -61,9 +52,8 @@ void setup() {
     bridgeSystem = new BridgeSystem();
     ap.begin();
     state = AUTO;
-    // Servo setup
-    myServo.attach(servoPin, 900, 2000);  
-    myServo.write(gatePos);
+    bridgeSystem->gateF.init(servoPin);
+    bridgeSystem->gateB.init(servoPin);
 
     // Ultrasonic setup
     pinMode(trigPinA, OUTPUT);
@@ -122,32 +112,29 @@ void loop(){
 }
 
 void bridgeAuto() {
-    distanceA = readUltrasonic(trigPinA, echoPinA);
-    distanceB = readUltrasonic(trigPinB, echoPinB);
+    int distanceA = bridgeSystem->ultra0.readUltrasonic(trigPinA, echoPinA);
+    int distanceB = bridgeSystem->ultra1.readUltrasonic(trigPinB, echoPinB);
 
-    Serial.print("Sensor A: ");
-    if (distanceA == -1) Serial.print("No echo");
-    else {
-        bridgeSystem->ultra0.updateDist(distanceA); //Critical
-        Serial.print(String(distanceA) + " cm  --> Object detected! ");
-    }
-
-    Serial.print(" | Sensor B: ");
-    if (distanceB == -1) Serial.print("No echo");
-    else {
-        bridgeSystem->ultra1.updateDist(distanceB); //Critical
-        Serial.print(String(distanceB) + " cm  --> Object detected! ");
-    }
-
+    printDist(distanceA, distanceB);
+  
     // Detection condition (within 20cm)
-    if ((distanceA > 0 && distanceA <= 20) || (distanceB > 0 && distanceB <= 20)) {
-        moveServoSmooth(0);  // close gate slowly
-        bridgeSystem->gate.close();
+    if (distanceA > 0 && distanceA <= 20) {
+        bridgeSystem->gateF.moveServoSmooth(0);  // close gate slowly
+        bridgeSystem->gateF.close();
     } else {
-        moveServoSmooth(90); // open gate slowly
-        bridgeSystem->gate.open();
+        bridgeSystem->gateF.moveServoSmooth(90);  // close gate slowly
+        bridgeSystem->gateF.open();
     }
-    
+
+     // Detection condition (within 20cm)
+    if (distanceB > 0 && distanceB <= 20) {
+        bridgeSystem->gateB.moveServoSmooth(0);  // close gate slowly
+        bridgeSystem->gateB.close();
+    } else {
+        bridgeSystem->gateB.moveServoSmooth(90);  // close gate slowly
+        bridgeSystem->gateB.open();
+    }
+
     //Motor Functionality
     if(mechanismState) {
         bridgeSystem->mechanism.raise();
@@ -159,49 +146,29 @@ void bridgeAuto() {
 }
 
 void bridgeManual() {
-  if(bridgeSystem->gate.getButton() == 1){
-      moveServoSmooth(90);  // open gate slowly
+  if(bridgeSystem->gateF.getButton() == 1){
+      bridgeSystem->gateF.moveServoSmooth(90);  // open gate slowly
+      bridgeSystem->gateF.close();
   }else {
-      moveServoSmooth(0);  // close gate slowly
+      bridgeSystem->gateF.moveServoSmooth(0);  // close gate slowly
+      bridgeSystem->gateF.open();
+  }
+
+  if(bridgeSystem->gateB.getButton() == 1){
+      bridgeSystem->gateB.moveServoSmooth(90); // open gate slowly
+      bridgeSystem->gateB.close();
+  }else {
+      bridgeSystem->gateB.moveServoSmooth(0);  // close gate slowly
+      bridgeSystem->gateB.open();
   }
 
   if(bridgeSystem->mechanism.getButton() == 1){
+      bridgeSystem->mechanism.raise();
       MotorOpeningSequence(); //Open bridge 5s
   }else {
+      bridgeSystem->mechanism.lower();
       MotorClosingSequence(); //Close bridge 5s
   }
-}
-
-// Function to read ultrasonic distance
-int readUltrasonic(int trigPin, int echoPin) {
-    digitalWrite(trigPin, LOW);
-    delayMicroseconds(2);
-    digitalWrite(trigPin, HIGH);
-    delayMicroseconds(10);
-    digitalWrite(trigPin, LOW);
-
-    long duration = pulseIn(echoPin, HIGH, 30000); // 30ms timeout
-    int distance = duration * 0.034 / 2;           // convert to cm
-    if (duration == 0) return -1;  // no echo
-    return distance;
-}
-
-// Smooth servo movement
-void moveServoSmooth(int targetPos) {
-    if (gatePos == targetPos) return;
-
-    if (targetPos > gatePos) {
-        for (int pos = gatePos; pos <= targetPos; pos++) {
-          myServo.write(pos);
-          delay(15);  // speed of motion
-        }
-    } else {
-        for (int pos = gatePos; pos >= targetPos; pos--) {
-          myServo.write(pos);
-          delay(15);  // speed of motion
-        }
-    }
-    gatePos = targetPos;
 }
 
 void MotorOpeningSequence(){ 
@@ -258,4 +225,19 @@ void printRPM() {
 
         lastTime = now;
     }
+}
+
+void printDist(int distanceA, int distanceB) {
+    Serial.print("Sensor A: ");
+    if (distanceA == -1) Serial.print("No echo");
+    else {
+        Serial.print(String(distanceA) + " cm  --> Object detected! ");
+    }
+
+    Serial.print(" | Sensor B: ");
+    if (distanceB == -1) Serial.print("No echo");
+    else {
+        Serial.print(String(distanceB) + " cm  --> Object detected! ");
+    }
+    Serial.println();
 }

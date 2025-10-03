@@ -61,8 +61,10 @@ void WebServerHandler::sendResponse(WiFiClient& client, BridgeSystem& system) {
     renderFlipButton(client, system.override);
     if(system.override.getButton() == 1) {
       renderFlipButton(client, system.mechanism);
-      renderFlipButton(client, system.alarm);
-      renderFlipButton(client, system.gate);
+      renderFlipButton(client, system.alarm0);
+      renderFlipButton(client, system.alarm1);
+      renderFlipButton(client, system.gateF);
+      renderFlipButton(client, system.gateB);
       renderRadioButton(client, system.trafficLights);
       renderRadioButton(client, system.bridgeLights);
     }else {

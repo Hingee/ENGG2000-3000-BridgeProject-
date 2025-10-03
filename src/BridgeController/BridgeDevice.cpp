@@ -46,21 +46,47 @@ String BridgeDevice::getPosState(int i){ return possibleStates[i]; }
 
 //Gate Device Child Class
 static String gateStates[] = {"Open", "Close"};
-Gate::Gate() : BridgeDevice("Gate", "Closed", 0, gateStates) {}
+Gate::Gate(const String& n) : BridgeDevice(n, "Closed", 0, gateStates) {}
 void Gate::open()  { 
     setState("Opened");
     setButton(1);
-    Serial.println("Opening gate");
+    Serial.print("Opened gate ");
+    Serial.println(name);
 }
 void Gate::close() { 
     setState("Closed");
     setButton(0); 
-    Serial.println("Closing gate");
+    Serial.print("Closing gate ");
+    Serial.println(name);
+}
+// Smooth servo movement
+void Gate::moveServoSmooth(int targetPos) {
+    if (gatePos == targetPos) return;
+    
+    if (targetPos > gatePos) {
+        for (int pos = gatePos; pos <= targetPos; pos++) {
+          myServo.write(pos);
+          delay(15);  // speed of motion
+        }
+    } else {
+        for (int pos = gatePos; pos >= targetPos; pos--) {
+          myServo.write(pos);
+          delay(15);  // speed of motion
+        }
+    }
+
+    gatePos = targetPos;
+}
+
+void Gate::init(int pin) {
+    gatePos = 90;
+    myServo.attach(pin, 900, 2000);  
+    myServo.write(gatePos);
 }
 
 //Alarm Device Child Class
 static String alarmStates[] = {"On", "Off"};
-Alarm::Alarm() : BridgeDevice("Alarm", "Off", 0, alarmStates) {}
+Alarm::Alarm(const String& n) : BridgeDevice(n, "Off", 0, alarmStates) {}
 void Alarm::activate()   { state = "On"; setButton(1); Serial.println("Alarm On"); }
 void Alarm::deactivate() { state = "Off"; setButton(0); Serial.println("Alarm Off"); }
 
