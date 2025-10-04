@@ -37,6 +37,13 @@ int servoPin = 13;  // GPIO13 for servo
 // Ultrasonic Variables
 int distanceA, distanceB;
 int gatePos = 90;  // Start open (upright)
+bool noEchoA = true;
+bool noEchoB = true;
+
+// Sensor System Reactivation Delay
+bool postOpenSensorDelay = false;
+int sensorDelay = 10000; //1000 per second
+long prevTimeSensor;
 
 // Network Variables
 APHandler ap(IPAddress(192,168,1,1), IPAddress(192,168,1,1), IPAddress(255,255,255,0));
@@ -59,11 +66,12 @@ MechanismBridgeState = mechanismState;
 mechanismState = IDLE;
 
 enum SensorScanningState {
-  SCANNING,
+  ULTRASONICDEFAULT,
+  PIRSAFETYCHECK,
   IDLE,
-}
+};
 SensorScanningState = sensorState;
-sensorState = SCANNING;
+sensorState = ULTRASONICDEFAULT;
 
 void setup() {
     Serial.begin(115200);
@@ -118,7 +126,7 @@ void networkTask(void *parameter) {
 //TODO Add transitioning button states
 void loop(){
 
-  //Encoder pulses since last counted
+  //Encoder pulses
   noInterrupts();
   unsigned long pulses = pulseCount;
   pulseCount = 0;
@@ -158,18 +166,24 @@ void bridgeAuto() {
     distanceB = readUltrasonic(trigPinB, echoPinB);
 
     switch(sensorState) {
-      case SCANNING:
+      case ULTRASONICDEFAULT:
 
         //Ultrasonic update distance (any detection)
         Serial.print("Sensor A: ");
-        if (distanceA == -1) Serial.print("No echo");
-        else {
+        if (distanceA == -1) {
+          noEchoA = true;
+          Serial.print("No echo");
+        } else {
+          noEchoA = false;
           bridgeSystem->ultra0.updateDist(distanceA); //Critical
           Serial.print(String(distanceA) + " cm  --> Object detected! ");
         }
         Serial.print(" | Sensor B: ");
-        if (distanceB == -1) Serial.print("No echo");
-        else {
+        if (distanceB == -1) {
+          noEchoB = true;
+          Serial.print("No echo");
+        } else {
+          noEchoB = false;
           bridgeSystem->ultra1.updateDist(distanceB); //Critical
           Serial.print(String(distanceB) + " cm  --> Object detected! ");
         }
@@ -177,39 +191,44 @@ void bridgeAuto() {
         // Detection condition (within 20cm)
         if ((distanceA > 0 && distanceA <= 20) || (distanceB > 0 && distanceB <= 20)) {
           Serial.println("Begin Bridge Safety Check");
-          /*
-          Install PIR sensor code here:
-          trafficLights = YELLOW;
-          if(PIRdetection == false) {
-            Serial.println("Begin Bridge Opening Sequence");
-            trafficLights = RED;
-            mechanismState = OPENING;
-            sensorState = IDLE;
-            moveServoSmooth(0); 
-            bridgeSystem->gate.close();
-          }
-          */ 
+          //trafficLights = YELLOW; when added
+          sensorState = PIRSAFETYCHECK;
+        }     
+
+        // Closing sequence condition
+        if(postOpenSensorDelay && millis() - prevTimeSensor <= sensorDelay && mechanismState == IDLE && noEchoA && noEchoB) {
+          Serial.println("Begin Bridge Closing Sequence");
+          postOpenSensorDelay = false;
+          mechanismState == CLOSING;
+          moveServoSmooth(90);
+          bridgeSystem->gate.open();
+        }
+        break;
+      case PIRSAFETYCHECK:
+        /*
+        Install PIR sensor code here:
+        if(PIRdetection == false) {
+          Serial.println("Begin Bridge Opening Sequence");
+          trafficLights = RED;
+          mechanismState = OPENING; 
+          sensorState = IDLE;
           moveServoSmooth(0); 
           bridgeSystem->gate.close();
-          mechanismState = OPENING;
-          sensorState = IDLE;
+        }
+        */ 
+        moveServoSmooth(0); 
+        bridgeSystem->gate.close();
+        mechanismState = OPENING;
+        sensorState = IDLE;
         } else {
           Serial.println("Begin Bridge Closing Sequence");
           mechanismState = CLOSING;
-
-          //do these after done
-          moveServoSmooth(90);
-          bridgeSystem->gate.open();
-        }     
+        }
         break;
       case IDLE:
         println("SENSOR: Waiting for bridge state transition...")
         break;
     }
-
-    //Time-Based Functions (Polling) 
-
-    //Sensor re-activation after bridge opened
 
     //Motor Functionality
     switch(mechanismState) {
@@ -284,7 +303,8 @@ void MotorOpeningSequence(){
       Serial.println("MOTOR: Opening sequence completed.");
       haltMotor();
       mechanismState = IDLE;
-      //set timer for reinitialisation of sensors
+      postOpenSensorDelay = true;
+      prevTimeSensor = millis();
       return;
     }
     //Run the motor clockwise 
@@ -299,8 +319,7 @@ void MotorClosingSequence(){
       Serial.println("MOTOR: Closing sequence completed.")
       haltMotor();
       mechanismState = IDLE;
-      sensorState = SCANNING;
-      //any other calls based on return to normal position
+      sensorState = ULTRASONICDEFAULT;
       return;
     }
     //Run the motor anti-clockwise
