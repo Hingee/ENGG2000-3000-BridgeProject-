@@ -8,8 +8,9 @@
 #include "WebServerHandler.h"
 #include "BridgeSystem.h"
 
-// Bridge Timer
-long globalTime = millis();
+// System Refresh Interval (For poll systems to work accurately)
+unsigned long lastRefresh = 0;
+const unsigned long refreshInterval = 500; //every 500 ms
 
 // Motor Setup
 static int motorDriverPin1 = 27; //27 - S3 will have error from this
@@ -20,6 +21,7 @@ float revolutionsCurrent = 0.0; //current position in revs
 // Motor Encoder
 const int encoderPinA = 34;
 volatile unsigned long pulseCount = 0;
+unsigned long prevPulseCount = 0;
 const int pulsesPerRevolution = 700;
 
 // Servo Setup
@@ -37,8 +39,12 @@ int servoPin = 13;  // GPIO13 for servo
 // Ultrasonic Variables
 int distanceA, distanceB;
 int gatePos = 90;  // Start open (upright)
+int targetPos = 0;
+unsigned long lastServoMoveTime = 0;
+int servoStepDelay = 15; // speed of motion (ms)
 bool noEchoA = true;
 bool noEchoB = true;
+
 
 // Sensor System Reactivation Delay
 bool postOpenSensorDelay = false;
@@ -57,21 +63,19 @@ enum BridgeState {
 };
 BridgeState state;
 
-enum MechanismBridgeState {
-  OPENING,
-  CLOSING,
-  IDLE,
+enum MechanismBridgeState { 
+  OPENING, 
+  CLOSING, 
+  IDLE 
 };
-MechanismBridgeState = mechanismState;
-mechanismState = IDLE;
+MechanismBridgeState mechanismState = IDLE;
 
-enum SensorScanningState {
-  ULTRASONICDEFAULT,
-  PIRSAFETYCHECK,
-  IDLE,
+enum SensorScanningState { 
+  ULTRASONICDEFAULT, 
+  PIRSAFETYCHECK, 
+  IDLE_SENSOR 
 };
-SensorScanningState = sensorState;
-sensorState = ULTRASONICDEFAULT;
+SensorScanningState sensorState = ULTRASONICDEFAULT;
 
 void setup() {
     Serial.begin(115200);
@@ -125,40 +129,43 @@ void networkTask(void *parameter) {
 
 //TODO Add transitioning button states
 void loop(){
+  if (millis() - lastRefresh >= refreshInterval) {
+    lastRefresh = millis();
 
-  //Encoder pulses
-  noInterrupts();
-  unsigned long pulses = pulseCount;
-  pulseCount = 0;
-  interrupts();
+    //Encoder pulses
+    noInterrupts();
+    unsigned long currentPulses = pulseCount;
+    interrupts();
+    unsigned long pulses = currentPulses - prevPulseCount;
+    prevPulseCount = currentPulses;
 
-  //Count motor revolutions
-  switch(mechanismState) {
-      case OPENING:
-        revolutionsCurrent += (float) pulses / pulsesPerRevolution;
+    //Count motor revolutions
+    switch(mechanismState) {
+        case OPENING:
+          revolutionsCurrent += (float) pulses / pulsesPerRevolution;
+          break;
+        case CLOSING:
+          revolutionsCurrent -= (float) pulses / pulsesPerRevolution;
+          break;
+        case IDLE:
+          break;
+      }
+
+    if(bridgeSystem->override.getButton() == 1) {
+      state = MANUAL;
+    } else {
+      state = AUTO;
+    }
+    
+    switch (state) {
+      case AUTO:
+        bridgeAuto();
         break;
-      case CLOSING:
-        revolutionsCurrent -= (float) pulses / pulsesPerRevolution;
-        break;
-      case IDLE:
+      case MANUAL:
+        bridgeManual();
         break;
     }
-
-  if(bridgeSystem->override.getButton() == 1) {
-    state = MANUAL;
-  } else {
-    state = AUTO;
   }
-  
-  switch (state) {
-    case AUTO:
-      bridgeAuto();
-      break;
-    case MANUAL:
-      bridgeManual();
-      break;
-  }
-  delay(500);
 }
 
 void bridgeAuto() {
@@ -196,11 +203,11 @@ void bridgeAuto() {
         }     
 
         // Closing sequence condition
-        if(postOpenSensorDelay && millis() - prevTimeSensor <= sensorDelay && mechanismState == IDLE && noEchoA && noEchoB) {
+        if(postOpenSensorDelay && millis() - prevTimeSensor >= sensorDelay && mechanismState == IDLE && noEchoA && noEchoB) {
           Serial.println("Begin Bridge Closing Sequence");
           postOpenSensorDelay = false;
-          mechanismState == CLOSING;
-          moveServoSmooth(90);
+          mechanismState = CLOSING;
+          targetPos = 90;
           bridgeSystem->gate.open();
         }
         break;
@@ -212,23 +219,21 @@ void bridgeAuto() {
           trafficLights = RED;
           mechanismState = OPENING; 
           sensorState = IDLE;
-          moveServoSmooth(0); 
+          targetPos = 0;
           bridgeSystem->gate.close();
-        }
-        */ 
-        moveServoSmooth(0); 
-        bridgeSystem->gate.close();
-        mechanismState = OPENING;
-        sensorState = IDLE;
         } else {
           Serial.println("Begin Bridge Closing Sequence");
           mechanismState = CLOSING;
         }
+        */ 
         break;
       case IDLE:
-        println("SENSOR: Waiting for bridge state transition...")
+        Serial.println("SENSOR: Waiting for bridge state transition...");
         break;
     }
+
+    //Servo Movement
+    moveServoSmooth();
 
     //Motor Functionality
     switch(mechanismState) {
@@ -279,27 +284,23 @@ int readUltrasonic(int trigPin, int echoPin) {
     return distance;
 }
 
-// Smooth servo movement
-void moveServoSmooth(int targetPos) {
+// Smooth servo movement UPDATED
+void moveServoSmooth() {
     if (gatePos == targetPos) return;
-
-    if (targetPos > gatePos) { //Needs to be converting to poll from loop
-        for (int pos = gatePos; pos <= targetPos; pos++) {
-          myServo.write(pos);
-          delay(15);  // speed of motion
-        }
-    } else {
-        for (int pos = gatePos; pos >= targetPos; pos--) {
-          myServo.write(pos);
-          delay(15);  // speed of motion
-        }
+    if(millis() - lastServoMoveTime >= servoStepDelay) {
+      if (targetPos > gatePos) {
+        gatePos++;
+      } else {
+        gatePos--;
+      }
+      lastServoMoveTime = millis();
+      myServo.write(gatePos);
     }
-    gatePos = targetPos;
 }
 
 void MotorOpeningSequence(){ 
-    if(mechanismState == IDLE || mechanismState == CLOSING) return;
-    if(revolutionsCurrent <= revolutionsToOpen) {
+    if(mechanismState != OPENING) return;
+    if(revolutionsCurrent >= revolutionsToOpen) {
       Serial.println("MOTOR: Opening sequence completed.");
       haltMotor();
       mechanismState = IDLE;
@@ -310,13 +311,12 @@ void MotorOpeningSequence(){
     //Run the motor clockwise 
     digitalWrite(motorDriverPin1, HIGH);
     digitalWrite(motorDriverPin2, LOW); 
-    delay(1);
 }
 
 void MotorClosingSequence(){
-    if(mechanismState == IDLE || mechanismState == OPENING) return;
-    if(revolutionsCurrent >= 0.0) {
-      Serial.println("MOTOR: Closing sequence completed.")
+    if(mechanismState != CLOSING) return;
+    if(revolutionsCurrent <= 0.0) {
+      Serial.println("MOTOR: Closing sequence completed.");
       haltMotor();
       mechanismState = IDLE;
       sensorState = ULTRASONICDEFAULT;
@@ -325,7 +325,6 @@ void MotorClosingSequence(){
     //Run the motor anti-clockwise
     digitalWrite(motorDriverPin1, LOW);
     digitalWrite(motorDriverPin2, HIGH);
-    delay(1);
 }
 
 //New Motor Method
@@ -333,7 +332,6 @@ void haltMotor() {
   Serial.println("System motor is idle.");
   digitalWrite(motorDriverPin1, LOW);
   digitalWrite(motorDriverPin2, LOW); 
-  delay(1);
 }
 
 void IRAM_ATTR onPulse() {
