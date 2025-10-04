@@ -16,12 +16,14 @@ int runType = 0;
 static int motorDriverPin1 = 27; 
 static int motorDriverPin2 = 26; 
 float totalRotations = 0.0; 
+float stopRevsAt = 50.0;
 
 //Encoder
 const int encoderPinA = 34;
 volatile unsigned long pulseCount = 0;
 const int pulsesPerRevolution = 700;
 
+static unsigned long prev = 0;
 
 void IRAM_ATTR onPulse() {
     pulseCount++;
@@ -46,10 +48,10 @@ void loop() {
         syncCheck();
     } else if (runType == 1) {
         Serial.println("Running Clockwise");
-        runMotorClockwise();
+        runMotorClockwise(stopRevsAt);
     } else if (runType == 2) {
         Serial.println("Running Anti-Clockwise");
-        runMotorAntiClockwise();
+        runMotorAntiClockwise(stopRevsAt);
     } else {
         Serial.println("Choose a mode");
     }
@@ -57,11 +59,14 @@ void loop() {
 }
 
 
-void runMotorClockwise() {
+void runMotorClockwise(float runUntil) {
+    if(totalRotations >= runUntil) {
+        haltMotor();
+        return;
+    }
     digitalWrite(motorDriverPin1, HIGH);
     digitalWrite(motorDriverPin2, LOW);
 
-    long prev = 0;
     if(millis() - prev <= 1000) {
         noInterrupts();
         unsigned long pulses = pulseCount;
@@ -78,11 +83,14 @@ void runMotorClockwise() {
     }
 }
 
-void runMotorAntiClockwise() {
+void runMotorAntiClockwise(float runUntil) {
+    if(totalRotations >= runUntil) {
+        haltMotor();
+        return;
+    }
     digitalWrite(motorDriverPin1, LOW);
     digitalWrite(motorDriverPin2, HIGH);
 
-    long prev = 0;
     if(millis() - prev <= 1000) {
         noInterrupts();
         unsigned long pulses = pulseCount;
@@ -112,15 +120,16 @@ void syncCheck() {
     while(true) {
         //initially run for 10 seconds
         while(millis() - prevAlt <= endTime) {
-            runMotorClockwise();
+            runMotorClockwise(9999.9);
         }
 
+        float forwardTotal = totalRotations;
         haltMotor();
         Serial.println();
         Serial.print("Opening sequence of ");
         Serial.print((millis() - prevAlt) / 1000);
         Serial.print(" seconds done in ");
-        Serial.print(totalRotations);
+        Serial.print(forwardTotal);
         Serial.println(" revolutions.");
         totalRotations = 0;
         prevAlt = millis();   
@@ -130,8 +139,8 @@ void syncCheck() {
         Serial.println("Check for consistency alignment.");
 
         float reverseRevolutions = 0.0;
-        while(reverseRevolutions <= totalRotations) {
-            runMotorAntiClockwise();
+        while(reverseRevolutions <= forwardTotal) {
+            runMotorAntiClockwise(9999.9);
             noInterrupts();
             unsigned long pulses = pulseCount;
             pulseCount = 0;
@@ -140,7 +149,6 @@ void syncCheck() {
         }
 
         haltMotor();
-        totalRotations = 0; //reset count
         endTime += 10000; //add 10 secs for next sequence
     }
 }
