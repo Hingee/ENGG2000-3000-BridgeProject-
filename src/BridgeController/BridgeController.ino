@@ -22,15 +22,6 @@ const int encoderPinA = 34;
 volatile unsigned long pulseCount = 0;
 const int pulsesPerRevolution = 700;
 
-// Bridge Motor Automation States
-enum MechanismBridgeState {
-  OPENING,
-  CLOSING,
-  IDLE,
-};
-MechanismBridgeState = mechanismState;
-mechanismState = IDLE;
-
 // Servo Setup
 Servo myServo;
 int servoPin = 13;  // GPIO13 for servo
@@ -47,25 +38,32 @@ int servoPin = 13;  // GPIO13 for servo
 int distanceA, distanceB;
 int gatePos = 90;  // Start open (upright)
 
-// Sensor Automation States
+// Network Variables
+APHandler ap(IPAddress(192,168,1,1), IPAddress(192,168,1,1), IPAddress(255,255,255,0));
+WebServerHandler webHandler;
+BridgeSystem* bridgeSystem = nullptr;
+
+// ---------- STATE MACHINES ----------
+enum BridgeState {
+  MANUAL,
+  AUTO,
+};
+BridgeState state;
+
+enum MechanismBridgeState {
+  OPENING,
+  CLOSING,
+  IDLE,
+};
+MechanismBridgeState = mechanismState;
+mechanismState = IDLE;
+
 enum SensorScanningState {
   SCANNING,
   IDLE,
 }
 SensorScanningState = sensorState;
 sensorState = SCANNING;
-
-// Network Variables
-APHandler ap(IPAddress(192,168,1,1), IPAddress(192,168,1,1), IPAddress(255,255,255,0));
-WebServerHandler webHandler;
-BridgeSystem* bridgeSystem = nullptr;
-
-// ---------- STATE MACHINE ----------
-enum BridgeState {
-  MANUAL,
-  AUTO,
-};
-BridgeState state;
 
 void setup() {
     Serial.begin(115200);
@@ -75,11 +73,11 @@ void setup() {
     ap.begin();
     state = AUTO;
 
-    //Servo setup
+    //Servo Setup
     myServo.attach(servoPin, 900, 2000);  
     myServo.write(gatePos);
 
-    //Ultrasonic setup
+    //Ultrasonic Setup
     pinMode(trigPinA, OUTPUT);
     pinMode(echoPinA, INPUT);
     pinMode(trigPinB, OUTPUT);
@@ -119,6 +117,25 @@ void networkTask(void *parameter) {
 
 //TODO Add transitioning button states
 void loop(){
+
+  //Encoder pulses since last counted
+  noInterrupts();
+  unsigned long pulses = pulseCount;
+  pulseCount = 0;
+  interrupts();
+
+  //Count motor revolutions
+  switch(mechanismState) {
+      case OPENING:
+        revolutionsCurrent += (float) pulses / pulsesPerRevolution;
+        break;
+      case CLOSING:
+        revolutionsCurrent -= (float) pulses / pulsesPerRevolution;
+        break;
+      case IDLE:
+        break;
+    }
+
   if(bridgeSystem->override.getButton() == 1) {
     state = MANUAL;
   } else {
@@ -140,13 +157,6 @@ void bridgeAuto() {
     distanceA = readUltrasonic(trigPinA, echoPinA);
     distanceB = readUltrasonic(trigPinB, echoPinB);
 
-    //Check revs (make this a method)
-    noInterrupts();
-    unsigned long pulses = pulseCount;
-    pulseCount = 0;
-    interrupts();
-    revolutionsCurrent += (float) pulses / pulsesPerRevolution;
-
     switch(sensorState) {
       case SCANNING:
 
@@ -166,15 +176,30 @@ void bridgeAuto() {
 
         // Detection condition (within 20cm)
         if ((distanceA > 0 && distanceA <= 20) || (distanceB > 0 && distanceB <= 20)) {
-          moveServoSmooth(0);  // close gate slowly
+          Serial.println("Begin Bridge Safety Check");
+          /*
+          Install PIR sensor code here:
+          trafficLights = YELLOW;
+          if(PIRdetection == false) {
+            Serial.println("Begin Bridge Opening Sequence");
+            trafficLights = RED;
+            mechanismState = OPENING;
+            sensorState = IDLE;
+            moveServoSmooth(0); 
+            bridgeSystem->gate.close();
+          }
+          */ 
+          moveServoSmooth(0); 
           bridgeSystem->gate.close();
-
-          //begin opening sequence
+          mechanismState = OPENING;
+          sensorState = IDLE;
         } else {
-          moveServoSmooth(90); // open gate slowly
-          bridgeSystem->gate.open();
+          Serial.println("Begin Bridge Closing Sequence");
+          mechanismState = CLOSING;
 
-          //begin closing sequence after a period of time
+          //do these after done
+          moveServoSmooth(90);
+          bridgeSystem->gate.open();
         }     
         break;
       case IDLE:
@@ -182,8 +207,10 @@ void bridgeAuto() {
         break;
     }
 
-    //polling states called from here
-    
+    //Time-Based Functions (Polling) 
+
+    //Sensor re-activation after bridge opened
+
     //Motor Functionality
     switch(mechanismState) {
       case OPENING:
@@ -194,7 +221,7 @@ void bridgeAuto() {
         bridgeSystem->mechanism.lower();
         MotorClosingSequence();
         break;
-      case IDLE: //default case. Also can be treated as the HALT case to stop the bridge.
+      case IDLE:
         //bridgeSystem->mechanism.stop(); or whatever u want to call it
         haltMotor();
         break;
@@ -203,16 +230,20 @@ void bridgeAuto() {
 
 void bridgeManual() {
   if(bridgeSystem->gate.getButton() == 1){
-      moveServoSmooth(90);  // open gate slowly
-  }else {
-      moveServoSmooth(0);  // close gate slowly
+    moveServoSmooth(90);  // open gate slowly
+  } else {
+    moveServoSmooth(0);  // close gate slowly
   }
 
   if(bridgeSystem->mechanism.getButton() == 1){ //needs to be adjust for new state
-      MotorOpeningSequence(); //Open bridge 5s
-  }else {
-      MotorClosingSequence(); //Close bridge 5s
+    MotorOpeningSequence(); //Open bridge 5s
+  } else {
+    MotorClosingSequence(); //Close bridge 5s
+  } /* else {
+    haltMotor();
   }
+*/
+  
 }
 
 // Function to read ultrasonic distance
@@ -249,25 +280,38 @@ void moveServoSmooth(int targetPos) {
 
 void MotorOpeningSequence(){ 
     if(mechanismState == IDLE || mechanismState == CLOSING) return;
-//  Serial.println("Initiate opening sequence."); //if polling this will run every time (move this to the loop)
-    digitalWrite(motorDriverPin1, HIGH); //clockwise 
+    if(revolutionsCurrent <= revolutionsToOpen) {
+      Serial.println("MOTOR: Opening sequence completed.");
+      haltMotor();
+      mechanismState = IDLE;
+      //set timer for reinitialisation of sensors
+      return;
+    }
+    //Run the motor clockwise 
+    digitalWrite(motorDriverPin1, HIGH);
     digitalWrite(motorDriverPin2, LOW); 
-    delay(1);  //Let the watchdog breathe
-//need to alert other systems of the completion of the bridge, or a global method that constantly checks if the bridge is done. Maybe in these methods then.
+    delay(1);
 }
 
 void MotorClosingSequence(){
     if(mechanismState == IDLE || mechanismState == OPENING) return;
-  //Serial.println("Initiate closing sequence");
-    digitalWrite(motorDriverPin1, LOW); //anti-clockwise
+    if(revolutionsCurrent >= 0.0) {
+      Serial.println("MOTOR: Closing sequence completed.")
+      haltMotor();
+      mechanismState = IDLE;
+      sensorState = SCANNING;
+      //any other calls based on return to normal position
+      return;
+    }
+    //Run the motor anti-clockwise
+    digitalWrite(motorDriverPin1, LOW);
     digitalWrite(motorDriverPin2, HIGH);
-    delay(1);  // Let the watchdog breathe
+    delay(1);
 }
 
-//new method, may need to be added to the RUI
+//New Motor Method
 void haltMotor() {
-  if(mechanismState == CLOSING || mechanismState == OPENING) return;
-//"motor stopped"
+  Serial.println("System motor is idle.");
   digitalWrite(motorDriverPin1, LOW);
   digitalWrite(motorDriverPin2, LOW); 
   delay(1);

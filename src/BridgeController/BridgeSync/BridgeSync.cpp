@@ -18,12 +18,12 @@ static int motorDriverPin2 = 26;
 float totalRotations = 0.0; 
 
 //Encoder
-const int encoderPinA = 34; //encoder won't be needed on main, only needed for trouble shooting
+const int encoderPinA = 34;
 volatile unsigned long pulseCount = 0;
 const int pulsesPerRevolution = 700;
 
 
-void IRAM_ATTR onPulse() { //change in main
+void IRAM_ATTR onPulse() {
     pulseCount++;
 }
 
@@ -57,7 +57,7 @@ void loop() {
 }
 
 
-void runMotorClockwise() { //need to change the pin order in main
+void runMotorClockwise() {
     digitalWrite(motorDriverPin1, HIGH);
     digitalWrite(motorDriverPin2, LOW);
 
@@ -129,7 +129,6 @@ void syncCheck() {
         Serial.println("Lowering Bridge back to neutral state.");
         Serial.println("Check for consistency alignment.");
 
-        //this part will be similar to new method for main
         float reverseRevolutions = 0.0;
         while(reverseRevolutions <= totalRotations) {
             runMotorAntiClockwise();
