@@ -8,7 +8,8 @@
 #include "BridgeSystem.h"
 
 //Servo
-#define servoPin 13  // GPIO13 for servo
+#define servoPin1 13  // GPIO13 for servo
+#define servoPin2 5  // GPIO5 for servo
 
 // Ultrasonic sensor A (front)
 #define trigPinA 17
@@ -76,7 +77,7 @@ void setup() {
     bridgeSystem = new BridgeSystem();
     ap.begin();
     state = AUTO;
-    bridgeSystem->gates.init(servoPin);
+    bridgeSystem->gates.init(servoPin1, servoPin2);
 
     // Ultrasonic setup
     pinMode(trigPinA, OUTPUT);
