@@ -9,8 +9,8 @@
 class BridgeSystem {
 public:
     //Mechanisms
-    Gate gate;
-    Alarm alarm;
+    Gate gates;
+    Alarm alarms;
     Light trafficLights;
     Light bridgeLights;
     BridgeMechanism mechanism;

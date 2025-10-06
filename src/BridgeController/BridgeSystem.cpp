@@ -1,15 +1,15 @@
 #include "BridgeSystem.h"
 
 BridgeSystem::BridgeSystem()
-    : gate(), alarm(), trafficLights("TrafficLights"), bridgeLights("BridgeLights"), mechanism(), ultra0(), ultra1(), pir(), override() {}
+    : gates("Gates"), alarms("Alarms"), trafficLights("TrafficLights"), bridgeLights("BridgeLights"), mechanism(), ultra0(), ultra1(), pir(), override() {}
 
 void BridgeSystem::execute(const String& cmd) {
-    if (cmd.indexOf("/Bridge_Mechanism/Raise") >= 0) mechanism.raise();
-    else if (cmd.indexOf("/Bridge_Mechanism/Lower") >= 0) mechanism.lower();
-    else if (cmd.indexOf("/Gate/Open") >= 0) gate.open();
-    else if (cmd.indexOf("/Gate/Close") >= 0) gate.close();
-    else if (cmd.indexOf("/Alarm/On") >= 0) alarm.activate();
-    else if (cmd.indexOf("/Alarm/Off") >= 0) alarm.deactivate();
+    if (cmd.indexOf("/Bridge_Mechanism/Raise") >= 0) mechanism.signalAction(1);
+    else if (cmd.indexOf("/Bridge_Mechanism/Lower") >= 0) mechanism.signalAction(0);
+    else if (cmd.indexOf("/Gates/Raise") >= 0) gates.signalAction(1);
+    else if (cmd.indexOf("/Gates/Lower") >= 0) gates.signalAction(0);
+    else if (cmd.indexOf("/Alarms/On") >= 0) alarms.activate();
+    else if (cmd.indexOf("/Alarms/Off") >= 0) alarms.deactivate();
     else if (cmd.indexOf("/TrafficLights/Red") >= 0) trafficLights.turnRed();
     else if (cmd.indexOf("/TrafficLights/Green") >= 0) trafficLights.turnGreen();
     else if (cmd.indexOf("/TrafficLights/Yellow") >= 0) trafficLights.turnYellow();

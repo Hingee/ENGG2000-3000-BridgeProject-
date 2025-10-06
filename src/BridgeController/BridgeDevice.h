@@ -3,34 +3,43 @@
 
 #include <Arduino.h>
 #include <mutex>
+#include <ESP32Servo.h>
 
 class BridgeDevice {
 protected:
     String name;
     String state;
     int buttonState;
-    String* possibleStates;
+    String* possibleActions;
     SemaphoreHandle_t mutex;
+    int signal;
 public:
     BridgeDevice(String n, String initState, int b, String* ps);
-    void setState(String s);
-    String getState();
-    void setButton(int b);//Threadsafe
-    int getButton();//Threadsafe
+    void setState(String s); //Threadsafe
+    String getState(); //Threadsafe
+    void setButton(int b); //Threadsafe
+    int getButton(); //Threadsafe
     String getName();
-    String getPosState(int i);
+    String getAction(int i);
+    void signalAction(int s); //Threadsafe
+    int getSignal(); //Threadsafe
 };
 
 class Gate : public BridgeDevice {
 public:
-    Gate();
+    Servo myServo;
+    int gatePos;
+    
+    Gate(const String& n);
     void open();
     void close();
+    void moveServoSmooth(int targetPos);
+    void init(int pin);
 };
 
 class Alarm : public BridgeDevice {
 public:
-    Alarm();
+    Alarm(const String& n);
     void activate();
     void deactivate();
 };
@@ -45,9 +54,19 @@ public:
 
 class BridgeMechanism : public BridgeDevice {
 public:
+    volatile unsigned long pulseCount = 0;
+    int duration;
+    int pulsesPerRevolution;
+    int motorDriverPin1;
+    int motorDriverPin2;
+
     BridgeMechanism();
     void raise();
     void lower();
+    void raiseSequence();
+    void lowerSequence();
+    void onPulse();
+    void init(int mp1, int mp2, int encPin, int dur, int pulsePerRev);
 };
 
 //Fake device to implement a flip override

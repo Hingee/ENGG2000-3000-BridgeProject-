@@ -15,6 +15,7 @@ private:
     void sendResponse(WiFiClient& client, BridgeSystem& system);
     void sendSensorData(WiFiClient& client, BridgeSystem& system);
     void renderFlipButton(WiFiClient& client, BridgeDevice& device);
+    void renderTransFlipButton(WiFiClient& client, BridgeDevice& device, String jsonKey);
     void renderRadioButton(WiFiClient& client, BridgeDevice& device);
 };
 
