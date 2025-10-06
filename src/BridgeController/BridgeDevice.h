@@ -8,21 +8,22 @@
 class BridgeDevice {
 protected:
     String name;
-    String state;
-    int buttonState;
+    int state;
+    int possALen;
+    String* possibleStates;
     String* possibleActions;
+    bool working;
     SemaphoreHandle_t mutex;
-    int signal;
 public:
-    BridgeDevice(String n, String initState, int b, String* ps);
-    void setState(String s); //Threadsafe
+    BridgeDevice(String n, String* pa, String* ps, int pal);
+    void setState(int s); //Threadsafe
     String getState(); //Threadsafe
-    void setButton(int b); //Threadsafe
-    int getButton(); //Threadsafe
     String getName();
+    String getAction();
     String getAction(int i);
-    void signalAction(int s); //Threadsafe
-    int getSignal(); //Threadsafe
+    int getStateNum();
+    void setWorking(bool w); //Threadsafe
+    bool isWorking(); //Threadsafe
 };
 
 class Gate : public BridgeDevice {
@@ -30,23 +31,25 @@ public:
     Servo myServo;
     int gatePos;
     
-    Gate(const String& n);
-    void open();
-    void close();
-    void moveServoSmooth(int targetPos);
+    Gate(const String& n, String* actions, String* states, int len);
+    void openNet();
+    unsigned long openHard(unsigned long lastTime, int stepDelay);
+    void closeNet();
+    unsigned long closeHard(unsigned long lastTime, int stepDelay);
+    void moveServoSmooth(int targetPos, unsigned long lastTime, int stepDelay);
     void init(int pin);
 };
 
 class Alarm : public BridgeDevice {
 public:
-    Alarm(const String& n);
+    Alarm(const String& n, String* actions, String* states, int len);
     void activate();
     void deactivate();
 };
 
 class Light : public BridgeDevice {
 public:
-    Light(const String& n);
+    Light(const String& n, String* states, int len);
     void turnRed();
     void turnGreen();
     void turnYellow();
@@ -54,27 +57,31 @@ public:
 
 class BridgeMechanism : public BridgeDevice {
 public:
-    volatile unsigned long pulseCount = 0;
-    int duration;
-    int pulsesPerRevolution;
+    float revolutionsCurrent;
+    float revolutionsToOpen;
     int motorDriverPin1;
     int motorDriverPin2;
 
-    BridgeMechanism();
-    void raise();
-    void lower();
-    void raiseSequence();
-    void lowerSequence();
-    void onPulse();
-    void init(int mp1, int mp2, int encPin, int dur, int pulsePerRev);
+    BridgeMechanism(const String& n, String* actions, String* states, int len);
+    void raiseNet();
+    bool raiseHard();
+    
+    void lowerNet();
+    bool lowerHard();
+    void haltMotor();
+
+    void incRev(unsigned long p, int ppr);
+    void decRev(unsigned long p, int ppr);
+    void init(int mp1, int mp2, int encPin);
 };
 
 //Fake device to implement a flip override
 class Override : public BridgeDevice {
 public:
-    Override();
-    void on();//Threadsafe
-    void off();//Threadsafe
+    Override(const String& n, String* actions, String* states, int len);
+    void on();
+    void off();
+    bool isOn();
 };
 
 #endif

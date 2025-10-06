@@ -1,8 +1,7 @@
 #include "APHandler.h"
 
 APHandler::APHandler(IPAddress ipAddr, IPAddress gw, IPAddress sn)
-  : ip(ipAddr), gateway(gw), subnet(sn), server(80)
-{
+  : ip(ipAddr), gateway(gw), subnet(sn), server(80){
     ssid = "Systems12_AP";
     password = "sys12-@#";
 }

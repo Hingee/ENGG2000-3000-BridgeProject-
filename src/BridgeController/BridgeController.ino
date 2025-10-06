@@ -7,7 +7,6 @@
 #include "WebServerHandler.h"
 #include "BridgeSystem.h"
 
-//Pins
 //Servo
 #define servoPin 13  // GPIO13 for servo
 
@@ -22,26 +21,51 @@
 //Motor specific
 #define motorDriverPin1 40 //27 - S3 will have error from this
 #define motorDriverPin2 41 //26 - S3 will have error from this
-#define duration 5000 //1000 is a second
 
 //Encoder
 #define encoderPinA 34
-#define pulsesPerRevolution 374 //may need adjusting
+#define pulsesPerRevolution 700 //may need adjusting
+volatile unsigned long pulseCount = 0;
+unsigned long prevPulseCount = 0;
 
 //Network Objects
 APHandler ap(IPAddress(192,168,1,1), IPAddress(192,168,1,1), IPAddress(255,255,255,0));
 WebServerHandler webHandler;
 BridgeSystem* bridgeSystem = nullptr;
 
+//Ultrasonic Control Flow Variables
+unsigned long lastServoMoveTime = 0;
+int servoStepDelay = 15; // speed of motion (ms)
+
+// Sensor System Reactivation Delay
+bool postOpenSensorDelay = false;
+int sensorDelay = 10000; //1000 per second
+long prevTimeSensor;
+
 // ---------- STATE MACHINE ----------
 enum BridgeState {
   MANUAL,
   AUTO,
 };
-
-bool mechanismState = true; //true closed, false open
-
 BridgeState state;
+
+enum MechanismBridgeState { 
+  OPENING, 
+  CLOSING, 
+  IDLE 
+};
+MechanismBridgeState mechanismState = IDLE;
+
+enum SensorScanningState { 
+  ULTRASONICDEFAULT, 
+  PIRSAFETYCHECK, 
+  IDLE_SENSOR 
+};
+SensorScanningState sensorState = ULTRASONICDEFAULT;
+
+// System Refresh Interval (For poll systems to work accurately)
+unsigned long lastRefresh = 0;
+const unsigned long refreshInterval = 100; //every 500 ms
 
 void IRAM_ATTR onPulse();
 
@@ -60,7 +84,8 @@ void setup() {
     pinMode(trigPinB, OUTPUT);
     pinMode(echoPinB, INPUT);
     
-    bridgeSystem->mechanism.init(motorDriverPin1, motorDriverPin2, encoderPinA, duration, pulsesPerRevolution);
+    bridgeSystem->mechanism.init(motorDriverPin1, motorDriverPin2, encoderPinA);
+    attachInterrupt(digitalPinToInterrupt(encoderPinA), onPulse, RISING);
 
     xTaskCreatePinnedToCore(networkTask,
         "NetworkTask",
@@ -85,75 +110,138 @@ void networkTask(void *parameter) {
 }
 
 void loop(){
-  if(bridgeSystem->override.getButton() == 1) {
-    state = MANUAL;
-  }else {
-    state = AUTO;
+  if (millis() - lastRefresh >= refreshInterval) {
+    lastRefresh = millis();
+
+    //Encoder pulses
+    noInterrupts();
+    unsigned long currentPulses = pulseCount;
+    interrupts();
+    unsigned long pulses = currentPulses - prevPulseCount;
+    prevPulseCount = currentPulses;
+
+    //Count motor revolutions
+    switch(mechanismState) {
+        case OPENING:
+          bridgeSystem->mechanism.incRev(pulses, pulsesPerRevolution);
+          break;
+        case CLOSING:
+          bridgeSystem->mechanism.decRev(pulses, pulsesPerRevolution);
+          break;
+        case IDLE:
+          break;
+    }
+
+    if(bridgeSystem->override.isOn()) {
+      state = MANUAL;
+    } else {
+      state = AUTO;
+    }
+    
+    switch (state) {
+      case AUTO:
+        bridgeAuto();
+        break;
+      case MANUAL:
+        bridgeManual();
+        break;
+    }
   }
-  
-  switch (state) {
-    case AUTO:
-      bridgeAuto();
-      break;
-    case MANUAL:
-      bridgeManual();
-      break;
-  }
-  delay(500);
+  delay(1);
 }
 
 void bridgeAuto() {
-    int distanceA = bridgeSystem->ultra0.readUltrasonic(trigPinA, echoPinA);
-    int distanceB = bridgeSystem->ultra1.readUltrasonic(trigPinB, echoPinB);
+    int distA = bridgeSystem->ultra0.readUltrasonic(trigPinA, echoPinA);
+    int distB = bridgeSystem->ultra1.readUltrasonic(trigPinB, echoPinB);
 
-    printDist(distanceA, distanceB);
-  
-    // Detection condition (within 20cm)
-    if ((distanceA > 0 && distanceA <= 20) || (distanceB > 0 && distanceB <= 20)) {
-        bridgeSystem->gates.close();
-    } else {
-        bridgeSystem->gates.open();
+    switch(sensorState) {
+      case ULTRASONICDEFAULT:
+        // Detection condition (within 20cm)
+        if ((distA > 0 && distA <= 20) || (distB > 0 && distB <= 20)) {
+          Serial.println("Begin Bridge Safety Check");
+          
+          bridgeSystem->trafficLights.turnYellow();
+          bridgeSystem->gates.closeNet();
+          lastServoMoveTime = bridgeSystem->gates.closeHard(lastServoMoveTime, servoStepDelay);
+          
+          sensorState = PIRSAFETYCHECK;
+        }     
+
+        // Closing sequence condition
+        if(postOpenSensorDelay && millis() - prevTimeSensor >= sensorDelay && mechanismState == IDLE && distA == -1 && distB == -1) {
+          Serial.println("Begin Bridge Closing Sequence");
+          postOpenSensorDelay = false;
+          mechanismState = CLOSING;
+          bridgeSystem->mechanism.lowerNet();
+          
+          bridgeSystem->gates.openNet();
+          lastServoMoveTime = bridgeSystem->gates.openHard(lastServoMoveTime, servoStepDelay);
+        }
+        break;
+      case PIRSAFETYCHECK:
+        /*
+        //Install PIR sensor code here:
+        if(PIRdetection == false) {
+          Serial.println("Begin Bridge Opening Sequence");
+          trafficLights = RED;
+          mechanismState = OPENING; 
+          bridgeSystem->mechanism.raiseNet();
+          sensorState = IDLE;
+          targetPos = 0;
+          bridgeSystem->gate.close();
+        } else {
+          Serial.println("Begin Bridge Closing Sequence");
+          mechanismState = CLOSING;
+          bridgeSystem->mechanism.lowerNet();
+        }
+        */
+        break;
+      case IDLE:
+        Serial.println("SENSOR: Waiting for bridge state transition...");
+        break;
     }
-    
+
     //Motor Functionality
-    if(mechanismState) {
-        bridgeSystem->mechanism.raise();
-        mechanismState = false;
-    } else {
-        bridgeSystem->mechanism.lower();
-        mechanismState = true;
+    switch(mechanismState) {
+      case OPENING:
+        if(bridgeSystem->mechanism.raiseHard()) {
+          mechanismState = IDLE;
+          postOpenSensorDelay = true;
+          prevTimeSensor = millis();
+        }
+        break;
+      case CLOSING:
+        if(bridgeSystem->mechanism.lowerHard()) {
+          mechanismState = IDLE;
+          sensorState = ULTRASONICDEFAULT;
+        }
+        break;
     }
 }
 
 void bridgeManual() {
-  if(bridgeSystem->gates.getSignal() == 0){
-      bridgeSystem->gates.close();
-      bridgeSystem->gates.signalAction(-1);
-  }else if(bridgeSystem->gates.getSignal() == 1){
-      bridgeSystem->gates.open();
-      bridgeSystem->gates.signalAction(-1);
+  if(bridgeSystem->gates.getStateNum() == 3){
+      lastServoMoveTime = bridgeSystem->gates.closeHard(lastServoMoveTime, servoStepDelay);
+  }else if(bridgeSystem->gates.getStateNum() == 2){
+      lastServoMoveTime = bridgeSystem->gates.openHard(lastServoMoveTime, servoStepDelay);
   }
   
-  if(bridgeSystem->mechanism.getSignal() == 1){
-      bridgeSystem->mechanism.raise();
-      bridgeSystem->mechanism.signalAction(-1);
-  }else if(bridgeSystem->mechanism.getSignal() == 0){
-      bridgeSystem->mechanism.lower();
-      bridgeSystem->mechanism.signalAction(-1);
+  if(bridgeSystem->mechanism.getStateNum() == 3){
+      mechanismState = CLOSING;
+  }else if(bridgeSystem->mechanism.getStateNum() == 2){
+      mechanismState = OPENING;
   }
+
+  switch(mechanismState) {
+        case OPENING:
+          if(bridgeSystem->mechanism.raiseHard()) mechanismState = IDLE;
+          break;
+        case CLOSING:
+          if(bridgeSystem->mechanism.lowerHard()) mechanismState = IDLE;
+          break;
+    }
 }
 
-void printDist(int distanceA, int distanceB) {
-    Serial.print("Sensor A: ");
-    if (distanceA == -1) Serial.print("No echo");
-    else {
-        Serial.print(String(distanceA) + " cm  --> Object detected! ");
-    }
-
-    Serial.print(" | Sensor B: ");
-    if (distanceB == -1) Serial.print("No echo");
-    else {
-        Serial.print(String(distanceB) + " cm  --> Object detected! ");
-    }
-    Serial.println();
+void IRAM_ATTR onPulse() {
+  pulseCount++;
 }
