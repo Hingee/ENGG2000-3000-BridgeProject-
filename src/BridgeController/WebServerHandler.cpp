@@ -59,10 +59,11 @@ void WebServerHandler::sendResponse(WiFiClient& client, BridgeSystem& system) {
 
     client.println("<h2>Mechanism Controls</h2>");
     renderFlipButton(client, system.override);
+    
     if(system.override.getButton() == 1) {
-      renderFlipButton(client, system.mechanism);
-      renderFlipButton(client, system.alarm0);
-      renderFlipButton(client, system.gateF);
+      renderTransFlipButton(client, system.mechanism, "mechanismState");
+      renderFlipButton(client, system.alarms);
+      renderTransFlipButton(client, system.gates, "gatesState");
       renderRadioButton(client, system.trafficLights);
       renderRadioButton(client, system.bridgeLights);
     }else {
@@ -101,7 +102,9 @@ void WebServerHandler::sendSensorData(WiFiClient& client, BridgeSystem& system) 
     String json = "{";
     json += "\"ultrasonic0\":" + String(system.ultra0.getDistance()) + ",";
     json += "\"ultrasonic1\":" + String(system.ultra1.getDistance()) + ",";
-    json += "\"pir\":" + String(system.pir.isTriggered() ? 1 : 0);
+    json += "\"pir\":" + String(system.pir.isTriggered() ? 1 : 0) + ",";
+    json += "\"gatesState\":\"" + system.gates.getState() + "\",";
+    json += "\"mechanismState\":\"" + system.mechanism.getState() + "\"";
     json += "}";
 
     client.println(json);
@@ -110,8 +113,7 @@ void WebServerHandler::sendSensorData(WiFiClient& client, BridgeSystem& system) 
 void WebServerHandler::renderFlipButton(WiFiClient& client, BridgeDevice& device) {
     int button = device.getButton();
     String name =  device.getName();
-    String action = device.getPosState(button); // first state
-    String buttonClass = (button == 0 || button == 1) ? "button" : "button2";
+    String action = device.getAction(button);
 
     client.print("<p>");  
     client.print(name); 
@@ -124,10 +126,64 @@ void WebServerHandler::renderFlipButton(WiFiClient& client, BridgeDevice& device
     client.print(action);
     client.print("?ts=");
     client.print(millis());
-    client.print("\"><button class=\"");
-    client.print(buttonClass);
+    client.print("\"><button class=\"button\">");
     client.print(action);
     client.println("</button></a></p>");
+}
+
+void WebServerHandler::renderTransFlipButton(WiFiClient& client, BridgeDevice& device, String jsonKey) {
+    int button = device.getButton();
+    String name =  device.getName();
+
+    client.print("<p>");  
+    client.print(name); 
+    client.print(" - State "); 
+    client.print(device.getState());
+    client.println("</p>");
+    
+    if (button == -1) {
+        // Show temporary Transitioning message
+        client.print("<div id='");
+        client.print(name);
+        client.print("Control'><p>");
+        client.print(device.getState());
+        client.println("...</p></div>");
+        
+        // Enable JS polling until state changes
+        client.println("<script>");
+        client.print("function check");
+        client.print(name);
+        client.println("() {");
+        client.println("  fetch('/sensor').then(r => r.json()).then(data => {");
+        client.print("    let s = data.");
+        client.print(jsonKey);
+        client.println(";");
+        client.println("    if (s === 'Raised' || s === 'Lowered') {");
+        client.print("      clearInterval(" + name + "Poll);");
+        client.println("      window.location.href = '/';");
+        client.println("    }");
+        client.println("  });");
+        client.println("}");
+        client.print("let ");
+        client.print(name);
+        client.println("Poll = setInterval(check" + name + ", 1000);");
+        client.println("</script>");
+    } else {
+        String action = device.getAction(button);
+
+        client.print("<div id='");
+        client.print(name);
+        client.println("Control'>");
+        client.print("<a href=\"/");
+        client.print(name);
+        client.print("/");
+        client.print(action);
+        client.print("?ts=");
+        client.print(millis());
+        client.print("\"><button class=\"button\">");
+        client.print(action);
+        client.println("</button></a></div>");
+    }
 }
 
 void WebServerHandler::renderRadioButton(WiFiClient& client, BridgeDevice& device) {
@@ -140,7 +196,7 @@ void WebServerHandler::renderRadioButton(WiFiClient& client, BridgeDevice& devic
     client.println("</p>");
 
     for (int i = 0; i < statesCount; i++) {
-        String stateName = device.getPosState(i);
+        String stateName = device.getAction(i);
         String buttonClass = (i == currState) ? "button" : "button2";
 
         client.print("<a href=\"/");

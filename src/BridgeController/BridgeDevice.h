@@ -10,30 +10,30 @@ protected:
     String name;
     String state;
     int buttonState;
-    String* possibleStates;
+    String* possibleActions;
     SemaphoreHandle_t mutex;
+    int signal;
 public:
     BridgeDevice(String n, String initState, int b, String* ps);
-    void setState(String s);
-    String getState();
-    void setButton(int b);//Threadsafe
-    int getButton();//Threadsafe
+    void setState(String s); //Threadsafe
+    String getState(); //Threadsafe
+    void setButton(int b); //Threadsafe
+    int getButton(); //Threadsafe
     String getName();
-    String getPosState(int i);
+    String getAction(int i);
+    void signalAction(int s); //Threadsafe
+    int getSignal(); //Threadsafe
 };
 
 class Gate : public BridgeDevice {
 public:
-    // Servo setup
     Servo myServo;
-    int gatePos;  // Start open (upright)
+    int gatePos;
     
     Gate(const String& n);
     void open();
     void close();
     void moveServoSmooth(int targetPos);
-    void servoClose();
-    void servoOpen();
     void init(int pin);
 };
 
@@ -54,10 +54,11 @@ public:
 
 class BridgeMechanism : public BridgeDevice {
 public:
-    bool mechanismState = true; //true closed, false open
     volatile unsigned long pulseCount = 0;
     int duration;
     int pulsesPerRevolution;
+    int motorDriverPin1;
+    int motorDriverPin2;
 
     BridgeMechanism();
     void raise();

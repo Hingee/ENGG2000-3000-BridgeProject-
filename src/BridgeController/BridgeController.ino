@@ -20,13 +20,13 @@
 #define echoPinB 18
 
 //Motor specific
-#define motorDriverPin1 40; //27 - S3 will have error from this
-#define motorDriverPin2 41; //26 - S3 will have error from this
-#define duration 5000; //1000 is a second
+#define motorDriverPin1 40 //27 - S3 will have error from this
+#define motorDriverPin2 41 //26 - S3 will have error from this
+#define duration 5000 //1000 is a second
 
 //Encoder
-#define encoderPinA 34;
-#define pulsesPerRevolution = 374; //may need adjusting
+#define encoderPinA 34
+#define pulsesPerRevolution 374 //may need adjusting
 
 //Network Objects
 APHandler ap(IPAddress(192,168,1,1), IPAddress(192,168,1,1), IPAddress(255,255,255,0));
@@ -39,6 +39,8 @@ enum BridgeState {
   AUTO,
 };
 
+bool mechanismState = true; //true closed, false open
+
 BridgeState state;
 
 void IRAM_ATTR onPulse();
@@ -50,8 +52,7 @@ void setup() {
     bridgeSystem = new BridgeSystem();
     ap.begin();
     state = AUTO;
-    bridgeSystem->gateF.init(servoPin);
-    bridgeSystem->gateB.init(servoPin);
+    bridgeSystem->gates.init(servoPin);
 
     // Ultrasonic setup
     pinMode(trigPinA, OUTPUT);
@@ -83,7 +84,6 @@ void networkTask(void *parameter) {
   }
 }
 
-//TODO Add transitioning button states
 void loop(){
   if(bridgeSystem->override.getButton() == 1) {
     state = MANUAL;
@@ -109,56 +109,37 @@ void bridgeAuto() {
     printDist(distanceA, distanceB);
   
     // Detection condition (within 20cm)
-    if (distanceA > 0 && distanceA <= 20) {
-        bridgeSystem->gateF.close();
-        bridgeSystem->gateF.servoClose();  // close gate slowly
+    if ((distanceA > 0 && distanceA <= 20) || (distanceB > 0 && distanceB <= 20)) {
+        bridgeSystem->gates.close();
     } else {
-        bridgeSystem->gateF.open();
-        bridgeSystem->gateF.servoOpen();  // close gate slowly
+        bridgeSystem->gates.open();
     }
-
-     // Detection condition (within 20cm)
-    if (distanceB > 0 && distanceB <= 20) {
-        bridgeSystem->gateB.close();
-        bridgeSystem->gateB.servoClose();  // close gate slowly
-    } else {
-        bridgeSystem->gateB.open();
-        bridgeSystem->gateB.servoOpen();  // close gate slowly
-    }
-
+    
     //Motor Functionality
     if(mechanismState) {
         bridgeSystem->mechanism.raise();
-        bridgeSystem->mechanism.raiseSequence();
+        mechanismState = false;
     } else {
         bridgeSystem->mechanism.lower();
-        bridgeSystem->mechanism.lowerSequence();
+        mechanismState = true;
     }
 }
 
 void bridgeManual() {
-  if(bridgeSystem->gateF.getButton() == 1){
-      bridgeSystem->gateF.close();
-      bridgeSystem->gateF.servoOpen();  // open gate slowly
-  }else {
-      bridgeSystem->gateF.open();
-      bridgeSystem->gateF.servoClose();  // close gate slowly
+  if(bridgeSystem->gates.getSignal() == 0){
+      bridgeSystem->gates.close();
+      bridgeSystem->gates.signalAction(-1);
+  }else if(bridgeSystem->gates.getSignal() == 1){
+      bridgeSystem->gates.open();
+      bridgeSystem->gates.signalAction(-1);
   }
-
-  if(bridgeSystem->gateB.getButton() == 1){
-      bridgeSystem->gateB.close();
-      bridgeSystem->gateB.servoOpen(); // open gate slowly
-  }else {
-      bridgeSystem->gateB.open();
-      bridgeSystem->gateB.servoClose();  // close gate slowly
-  }
-
-  if(bridgeSystem->mechanism.getButton() == 1){
+  
+  if(bridgeSystem->mechanism.getSignal() == 1){
       bridgeSystem->mechanism.raise();
-      bridgeSystem->mechanism.raiseSequence();
-  }else {
+      bridgeSystem->mechanism.signalAction(-1);
+  }else if(bridgeSystem->mechanism.getSignal() == 0){
       bridgeSystem->mechanism.lower();
-      bridgeSystem->mechanism.lowerSequence();
+      bridgeSystem->mechanism.signalAction(-1);
   }
 }
 
