@@ -97,14 +97,18 @@ void Gate::moveServoSmooth(int targetPos, unsigned long lastTime, int stepDelay)
       } else {
         gatePos--;
       }
-      myServo.write(gatePos);
+      servo1.write(gatePos);
+      servo2.write(gatePos);
     }
     Serial.println(gatePos);
 }
-void Gate::init(int pin) {
+void Gate::init(int pin1, int pin2) {
     gatePos = 90;
-    myServo.attach(pin, 900, 2000);  
-    myServo.write(gatePos);
+    servo1.attach(pin1, 900, 2000);  
+    servo1.write(gatePos);
+
+    servo2.attach(pin2, 900, 2000);  
+    servo2.write(gatePos);
 }
 
 //Alarm Device Child Class

@@ -28,7 +28,8 @@ public:
 
 class Gate : public BridgeDevice {
 public:
-    Servo myServo;
+    Servo servo1;
+    Servo servo2;
     int gatePos;
     
     Gate(const String& n, String* actions, String* states, int len);
@@ -37,7 +38,7 @@ public:
     void closeNet();
     unsigned long closeHard(unsigned long lastTime, int stepDelay);
     void moveServoSmooth(int targetPos, unsigned long lastTime, int stepDelay);
-    void init(int pin);
+    void init(int pin1, int pin2);
 };
 
 class Alarm : public BridgeDevice {
