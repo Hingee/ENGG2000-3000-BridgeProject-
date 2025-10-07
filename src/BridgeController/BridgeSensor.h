@@ -6,30 +6,33 @@
 
 class BridgeSensor {
 protected:
-    String name;
-    SemaphoreHandle_t mutex;
+  String name;
+  SemaphoreHandle_t mutex;
+
 public:
-    BridgeSensor(String n);
-    String getName();
+  BridgeSensor(String n);
+  String getName();
 };
 
 class US : public BridgeSensor {
 protected:
-    int distance;
+  int distance;
+
 public:
-    US();
-    int readUltrasonic(int trigPin, int echoPin);
-    void updateDist(int d);
-    int getDistance();
+  US();
+  int readUltrasonic(int trigPin, int echoPin);
+  void updateDist(int d);
+  int getDistance();
 };
 
 class PIR : public BridgeSensor {
 protected:
-    boolean isTriggerd;
+  boolean isTriggerd;
+  
 public:
-    PIR();
-    void setTriggerd(boolean t);
-    boolean isTriggered();
+  PIR();
+  void setTriggerd(boolean t);
+  boolean isTriggered();
 };
 
 #endif

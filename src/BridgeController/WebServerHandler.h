@@ -7,17 +7,17 @@
 #include "BridgeSystem.h"
 
 class WebServerHandler {
-    String header;
+  String header;
 public:
-    void handleClient(WiFiClient& client, BridgeSystem& system);
+  void handleClient(WiFiClient& client, BridgeSystem& system);
 
 private:
-    void sendResponse(WiFiClient& client, BridgeSystem& system);
-    void sendSensorData(WiFiClient& client, BridgeSystem& system);
-    void sendDeviceData(WiFiClient& client, BridgeSystem& system);
-    void renderFlipButton(WiFiClient& client, BridgeDevice& device);
-    void renderTransFlipButton(WiFiClient& client, BridgeDevice& device, String jsonKey);
-    void renderRadioButton(WiFiClient& client, BridgeDevice& device);
+  void sendResponse(WiFiClient& client, BridgeSystem& system);
+  void sendSensorData(WiFiClient& client, BridgeSystem& system);
+  void sendDeviceData(WiFiClient& client, BridgeSystem& system);
+  void renderFlipButton(WiFiClient& client, BridgeDevice& device);
+  void renderTransFlipButton(WiFiClient& client, BridgeDevice& device, String jsonKey);
+  void renderRadioButton(WiFiClient& client, BridgeDevice& device);
 };
 
 #endif
