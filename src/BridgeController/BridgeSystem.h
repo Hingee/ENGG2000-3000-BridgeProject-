@@ -8,22 +8,22 @@
 
 class BridgeSystem {
 public:
-    //Mechanisms
-    Gate gates;
-    Alarm alarms;
-    Light trafficLights;
-    Light bridgeLights;
-    BridgeMechanism mechanism;
-    Override override;
+  //Mechanisms
+  Gate gates;
+  Alarm alarms;
+  Light trafficLights;
+  Light bridgeLights;
+  BridgeMechanism mechanism;
+  Override override;
 
-    //Sensors
-    US ultra0;
-    US ultra1;
-    PIR pir;
+  //Sensors
+  US ultra0;
+  US ultra1;
+  PIR pir;
 
-    BridgeSystem();
+  BridgeSystem();
 
-    void execute(const String& cmd);
+  void execute(const String& cmd);
 };
 
 #endif

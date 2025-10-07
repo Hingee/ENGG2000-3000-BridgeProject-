@@ -16,7 +16,6 @@ int runType = 0;
 static int motorDriverPin1 = 27; 
 static int motorDriverPin2 = 26; 
 float totalRotations = 0.0; 
-float stopRevsAt = 50.0;
 
 //Encoder
 const int encoderPinA = 34;
@@ -30,7 +29,7 @@ void IRAM_ATTR onPulse() {
 }
 
 void setup() {
-    Serial.begin(115200);
+    Serial.begin(9600);
     delay(100);
 
     pinMode(motorDriverPin1, OUTPUT);
@@ -48,26 +47,21 @@ void loop() {
         syncCheck();
     } else if (runType == 1) {
         Serial.println("Running Clockwise");
-        runMotorClockwise(stopRevsAt);
+        runMotorClockwise();
     } else if (runType == 2) {
         Serial.println("Running Anti-Clockwise");
-        runMotorAntiClockwise(stopRevsAt);
+        runMotorAntiClockwise();
     } else {
         Serial.println("Choose a mode");
     }
-//note to add a runUntil method (based on the amount of revolutions it needs to do to be manually reset if disconnected from power and it forgets its position)
 }
 
 
-void runMotorClockwise(float runUntil) {
-    if(totalRotations >= runUntil) {
-        haltMotor();
-        return;
-    }
+void runMotorClockwise() {
     digitalWrite(motorDriverPin1, HIGH);
     digitalWrite(motorDriverPin2, LOW);
 
-    if(millis() - prev <= 1000) {
+    if(millis() - prev >= 1000) {
         noInterrupts();
         unsigned long pulses = pulseCount;
         pulseCount = 0;
@@ -77,21 +71,19 @@ void runMotorClockwise(float runUntil) {
         totalRotations += revolutions; 
         Serial.print("Live RPM: ");
         Serial.print(rpm, 2);
-        Serial.print(" | Revolutions: ");
-        Serial.println(revolutions, 2);
+        Serial.print(" | Revs Since Last Pulse: ");
+        Serial.print(revolutions, 2);
+        Serial.print(" | Total Revs: ");
+        Serial.println(totalRotations, 2);
         prev = millis();  
     }
 }
 
-void runMotorAntiClockwise(float runUntil) {
-    if(totalRotations >= runUntil) {
-        haltMotor();
-        return;
-    }
+void runMotorAntiClockwise() {
     digitalWrite(motorDriverPin1, LOW);
     digitalWrite(motorDriverPin2, HIGH);
 
-    if(millis() - prev <= 1000) {
+    if(millis() - prev >= 1000) {
         noInterrupts();
         unsigned long pulses = pulseCount;
         pulseCount = 0;
@@ -101,7 +93,7 @@ void runMotorAntiClockwise(float runUntil) {
         totalRotations += revolutions; 
         Serial.print("Live RPM: ");
         Serial.print(rpm, 2);
-        Serial.print(" | Revolutions: ");
+        Serial.print(" | Revs Since Last Pulse: ");
         Serial.println(revolutions, 2);
         prev = millis();  
     }
@@ -114,13 +106,15 @@ void haltMotor() {
 
 void syncCheck() {
     long prevAlt = 0;
-    int endTime = 10000;
+    int endTime = 5000;
 
     //infinite loop
     while(true) {
-        //initially run for 10 seconds
+        prevAlt = millis();
+        //initially run for 5 seconds
         while(millis() - prevAlt <= endTime) {
-            runMotorClockwise(9999.9);
+            runMotorClockwise();
+            delay(1);
         }
 
         float forwardTotal = totalRotations;
@@ -135,12 +129,14 @@ void syncCheck() {
         prevAlt = millis();   
         delay(2000); //chill out for a sec
 
+        Serial.println("");
         Serial.println("Lowering Bridge back to neutral state.");
         Serial.println("Check for consistency alignment.");
 
         float reverseRevolutions = 0.0;
         while(reverseRevolutions <= forwardTotal) {
-            runMotorAntiClockwise(9999.9);
+            runMotorAntiClockwise();
+            delay(1);
             noInterrupts();
             unsigned long pulses = pulseCount;
             pulseCount = 0;
@@ -148,7 +144,10 @@ void syncCheck() {
             reverseRevolutions += (float) pulses / pulsesPerRevolution;
         }
 
+        Serial.print("Bridge closed at position ");
+        Serial.println(reverseRevolutions);
+
         haltMotor();
-        endTime += 10000; //add 10 secs for next sequence
+        endTime += 5000; //add 5 secs for next sequence
     }
 }

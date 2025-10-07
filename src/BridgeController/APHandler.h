@@ -4,17 +4,16 @@
 #include <WiFi.h>
 
 class APHandler {
-    const char* ssid;
-    const char* password;
-    IPAddress ip, gateway, subnet;
-    WiFiServer server;
-
 public:
-    APHandler(IPAddress ipAddr, IPAddress gw, IPAddress sn);
+  APHandler(const IPAddress ipAddr, const IPAddress gw, const IPAddress sn);
+  void begin();
+  WiFiClient getClient();
 
-    void begin();
-    
-    WiFiClient getClient();
+private:
+  const char* ssid;
+  const char* password;
+  IPAddress ip, gateway, subnet;
+  WiFiServer server;
 };
 
 #endif

@@ -1,61 +1,72 @@
 #include "BridgeDevice.h"
 
-//BridgeDevice Parent Class
-BridgeDevice::BridgeDevice(String n, String* pa, String* ps, int pal) { 
-    name = n; 
-    state = 0; 
-    possibleActions = pa;
-    possibleStates = ps;
-    possALen = pal;
-    mutex = xSemaphoreCreateMutex();
-    working = false;
-    assert(mutex);
+// ---------- Bridge Device Parent Class ----------
+BridgeDevice::BridgeDevice(const String& n, String* pa, String* ps, int pal) {
+  name = n;
+  state = 0;
+  possibleActions = pa;
+  possibleStates = ps;
+  possALen = pal;
+  working = false;
 
-    if (mutex == NULL) {
-      Serial.println("ERROR: mutex creation FAILED in BridgeDevice ctor!");
-      // Optionally halt here so you can see the message:
-      while (1) { delay(1000); }
-    } else {
-      Serial.println("BridgeDevice: mutex created OK for " + name);
-    }
+  mutex = xSemaphoreCreateMutex();
+  assert(mutex);
+
+  if (mutex == NULL) {
+    Serial.println("[BridgeDevice] ERROR: mutex creation FAILED in BridgeDevice ctor!");
+  } else {
+    Serial.print("[BridgeDevice] mutex created OK for ");
+    Serial.println(name);
+  }
 }
-void BridgeDevice::setState(int s) { 
-  if(s >= possALen) setWorking(true);
+
+void BridgeDevice::setState(int s) {
+  if (s >= possALen) setWorking(true);
   else setWorking(false);
-  
+
   xSemaphoreTake(mutex, portMAX_DELAY);
-  state = s; 
+  state = s;
   xSemaphoreGive(mutex);
 }
-String BridgeDevice::getState() { 
+
+String BridgeDevice::getState() {
   String temp;
   xSemaphoreTake(mutex, portMAX_DELAY);
-  temp = possibleStates[state]; 
+  if (state >= 0 && state < possALen) temp = possibleStates[state];
+  else temp = "[BridgeDevice] Error: Unknown State";
   xSemaphoreGive(mutex);
   return temp;
 }
-int BridgeDevice::getStateNum() { 
+
+int BridgeDevice::getStateNum() {
   int temp;
   xSemaphoreTake(mutex, portMAX_DELAY);
-  temp = state; 
+  temp = state;
   xSemaphoreGive(mutex);
   return temp;
 }
-String BridgeDevice::getName() { return name; }
-String BridgeDevice::getAction(){ 
-  int temp = getStateNum();
-  if(temp >= possALen) return "-";
-  return possibleActions[temp]; 
+
+String BridgeDevice::getName() const {
+  return name;
 }
-String BridgeDevice::getAction(int i){ 
-  if(i >= possALen) return "-";
-  return possibleActions[i]; 
+
+String BridgeDevice::getAction() {
+  int idx = getStateNum();
+  if (idx >= possALen) return "[BridgeDevice] Error: Unknown Action";
+  return possibleActions[idx];
 }
+
+String BridgeDevice::getAction(int idx) {
+  if (idx >= possALen) return "[BridgeDevice] Error: Unknown Action " + i;
+  return possibleActions[idx];
+}
+
 void BridgeDevice::setWorking(bool w) {
   xSemaphoreTake(mutex, portMAX_DELAY);
-  working = w; 
+  working = w;
   xSemaphoreGive(mutex);
 }
+
 bool BridgeDevice::isWorking() {
   bool temp;
   xSemaphoreTake(mutex, portMAX_DELAY);
@@ -64,129 +75,195 @@ bool BridgeDevice::isWorking() {
   return temp;
 }
 
-//Gate Device Child Class
-Gate::Gate(const String& n, String* actions, String* states, int len) : BridgeDevice(n,  actions, states, len) {}
-void Gate::openNet() { setState(2); Serial.println("Raising Gates"); }
-unsigned long Gate::openHard(unsigned long lastTime, int stepDelay) { 
-  int targetPos = 90;
+// ---------- Gate Implementation ----------
+Gate::Gate(const String& n, String* actions, String* states, int len)
+  : BridgeDevice(n, actions, states, len) {}
+
+void Gate::openNet() {
+  setState(2);
+  Serial.println("[Gate] Raising Gates");
+}
+unsigned long Gate::openHard(unsigned long lastTime, int stepDelay) {
+  const int targetPos = 90;
   if (gatePos == targetPos) {
-    setState(0); 
-    Serial.println("Raised Gates"); 
+    setState(0);
+    Serial.println("[Gate] Raised Gates");
+    idle = true;
     return millis();
   }
-  
-  moveServoSmooth(targetPos,lastTime,stepDelay); 
-  return millis();
+
+  return moveServoSmooth(targetPos, lastTime, stepDelay);
 }
-void Gate::closeNet() { setState(3); Serial.println("Lowering Gates"); }
-unsigned long Gate::closeHard(unsigned long lastTime, int stepDelay) { 
-  int targetPos = 0;
+
+void Gate::closeNet() {
+  setState(3);
+  Serial.println("[Gate] Lowering Gates");
+}
+unsigned long Gate::closeHard(unsigned long lastTime, int stepDelay) {
+  const int targetPos = 0;
   if (gatePos == targetPos) {
-    setState(1); 
-    Serial.println("Lowered Gates"); 
+    setState(1);
+    Serial.println("[Gate] Lowered Gates");
+    idle = true;
     return millis();
   }
-  
-  moveServoSmooth(targetPos,lastTime,stepDelay); 
-  return millis();
-}
-void Gate::moveServoSmooth(int targetPos, unsigned long lastTime, int stepDelay) {
-    if(millis() - lastTime >= stepDelay) {
-      if (targetPos > gatePos) {
-        gatePos++;
-      } else {
-        gatePos--;
-      }
-      myServo.write(gatePos);
-    }
-    Serial.println(gatePos);
-}
-void Gate::init(int pin) {
-    gatePos = 90;
-    myServo.attach(pin, 900, 2000);  
-    myServo.write(gatePos);
+
+  return moveServoSmooth(targetPos, lastTime, stepDelay);
 }
 
-//Alarm Device Child Class
-Alarm::Alarm(const String& n, String* actions, String* states, int len) : BridgeDevice(n, actions, states, len) {}
-void Alarm::activate()   { setState(0); Serial.println("Alarm On"); }
-void Alarm::deactivate() { setState(1); Serial.println("Alarm Off"); }
+unsigned long Gate::moveServoSmooth(int targetPos, unsigned long lastTime, int stepDelay) {
+  unsigned long now = millis();
+  idle = false;
 
-//Light Device Child Class TODO implement RGY on light class
-Light::Light(const String& n, String* states, int len) : BridgeDevice(n, states, states, len) {}
-void Light::turnRed()  { setState(0); Serial.println(name + " Red"); }
-void Light::turnGreen() { setState(1); Serial.println(name + " Green"); }
-void Light::turnYellow() { setState(2); Serial.println(name + " Yellow"); }
+  if (now - lastTime >= stepDelay) {
+    if (targetPos > gatePos) gatePos++;
+    else gatePos--;
 
-//Bridge Mechanism Device Child Class
-BridgeMechanism::BridgeMechanism(const String& n, String* actions, String* states, int len) : BridgeDevice(n, actions, states, len) {
-    revolutionsCurrent = 0.0;
-    revolutionsToOpen = 50.0;
-}
-void BridgeMechanism::raiseNet() { setState(2); Serial.println("Bridge Raising"); }
-bool BridgeMechanism::raiseHard() { 
-  Serial.println(revolutionsCurrent, 2);
-  Serial.println(revolutionsToOpen, 2);
-  if(revolutionsCurrent >= revolutionsToOpen) {
-      haltMotor();
-      setState(0); 
-      
-      Serial.println("Bridge Raised"); 
-      return true;
+    servo1.write(gatePos);
+    servo2.write(gatePos);
+    lastTime = now;
   }
-  
-  //Run the motor clockwise 
+  //Debugging
+  Serial.print("[Gate] pos=");
+  Serial.println(gatePos);
+  return lastTime;
+}
+bool Gate::isIdle() {
+  return idle;
+}
+
+void Gate::init(int pin1, int pin2) {
+  idle = true;
+  gatePos = 90;
+  servo1.attach(pin1, 900, 2000);
+  servo1.write(gatePos);
+
+  servo2.attach(pin2, 900, 2000);
+  servo2.write(gatePos);
+}
+
+// ---------- Alarm Implementation ----------
+Alarm::Alarm(const String& n, String* actions, String* states, int len)
+  : BridgeDevice(n, actions, states, len) {}
+void Alarm::activate() {
+  setState(0);
+  Serial.println("[Alarm] Alarm On");
+}
+void Alarm::deactivate() {
+  setState(1);
+  Serial.println("[Alarm] Alarm Off");
+}
+
+// ---------- Light Implementation ----------
+Light::Light(const String& n, String* states, int len)
+  : BridgeDevice(n, states, states, len) {}
+void Light::turnRed() {
+  setState(0);
+  Serial.print("[Light] ");
+  Serial.print(name);
+  Serial.println(" Red");
+}
+void Light::turnGreen() {
+  setState(1);
+  Serial.print("[Light] ");
+  Serial.print(name);
+  Serial.println(" Green");
+}
+void Light::turnYellow() {
+  setState(2);
+  Serial.print("[Light] ");
+  Serial.print(name);
+  Serial.println(" Yellow");
+}
+
+// ---------- BridgeMechanism Implementation ----------
+BridgeMechanism::BridgeMechanism(const String& n, String* actions, String* states, int len)
+  : BridgeDevice(n, actions, states, len) {
+  revolutionsCurrent = 0.0;
+  revolutionsToOpen = 50.0;
+}
+
+void BridgeMechanism::raiseNet() {
+  setState(2);
+  Serial.println("[Mechanism] Raising");
+}
+bool BridgeMechanism::raiseHard() {
+  Serial.print("[Mechanism] cur=");
+  Serial.print(revolutionsCurrent);
+  Serial.print(" target=");
+  Serial.println(revolutionsToOpen);
+
+  if (revolutionsCurrent >= revolutionsToOpen) {
+    haltMotor();
+    setState(0);
+    Serial.println("[Mechanism] Raised");
+    return true;
+  }
+
+  //Run the motor clockwise
   digitalWrite(motorDriverPin1, HIGH);
-  digitalWrite(motorDriverPin2, LOW); 
-
+  digitalWrite(motorDriverPin2, LOW);
   return false;
 }
-void BridgeMechanism::lowerNet() {  setState(3); Serial.println("Bridge Lowering"); }
+
+void BridgeMechanism::lowerNet() {
+  setState(3);
+  Serial.println("[Mechanism] Lowering");
+}
 bool BridgeMechanism::lowerHard() {
-  Serial.println(revolutionsCurrent, 2);
-  Serial.println(revolutionsToOpen, 2);  
-  if(revolutionsCurrent <= 0.0) {
-        haltMotor();
-        setState(1); 
-        
-        Serial.println("Bridge Lowered"); 
-        return true;
+  Serial.print("[Mechanism] cur=");
+  Serial.print(revolutionsCurrent);
+  Serial.print(" target=");
+  Serial.println(revolutionsToOpen);
+
+  if (revolutionsCurrent <= 0.0) {
+    haltMotor();
+    setState(1);
+    Serial.println("[Mechanism] Lowered");
+    return true;
   }
-  
+
   //Run the motor anti-clockwise
   digitalWrite(motorDriverPin1, LOW);
   digitalWrite(motorDriverPin2, HIGH);
-
   return false;
 }
+
 void BridgeMechanism::haltMotor() {
-    Serial.println("System motor is idle.");
-    digitalWrite(motorDriverPin1, LOW);
-    digitalWrite(motorDriverPin2, LOW);  
+  Serial.println("[Mechanism] Motor Idle.");
+  digitalWrite(motorDriverPin1, LOW);
+  digitalWrite(motorDriverPin2, LOW);
 }
-void BridgeMechanism::incRev(unsigned long p, int ppr) { 
-//  revolutionsCurrent += (float) p / ppr; 
-    revolutionsCurrent++;
+void BridgeMechanism::incRev(unsigned long p, int ppr) {
+  //  revolutionsCurrent += (float) p / ppr;
+  revolutionsCurrent++;
 }
-void BridgeMechanism::decRev(unsigned long p, int ppr) { 
-//  revolutionsCurrent -= (float) p / ppr;
-    revolutionsCurrent--;
+void BridgeMechanism::decRev(unsigned long p, int ppr) {
+  //  revolutionsCurrent -= (float) p / ppr;
+  revolutionsCurrent--;
 }
 void BridgeMechanism::init(int mp1, int mp2, int encPin) {
-    //Motor Setup
-    pinMode(mp1, OUTPUT);
-    pinMode(mp2, OUTPUT);
-    digitalWrite(mp1, LOW);
-    digitalWrite(mp2, LOW);
+  motorDriverPin1 = mp1;
+  motorDriverPin2 = mp2;
 
-    pinMode(encPin, INPUT_PULLUP);
+  //Motor Setup
+  pinMode(motorDriverPin1, OUTPUT);
+  pinMode(motorDriverPin2, OUTPUT);
+  digitalWrite(motorDriverPin1, LOW);
+  digitalWrite(motorDriverPin2, LOW);
 
-    motorDriverPin1 = mp1;
-    motorDriverPin2 = mp2;
+  pinMode(encPin, INPUT_PULLUP);
 }
 
-//Fake device to implement a flip override
-Override::Override(const String& n, String* actions, String* states, int len) : BridgeDevice(n, actions, states, len) {}
-void Override::on() { setState(1);}
-void Override::off() { setState(0);}
-bool Override::isOn() { return getStateNum()==1; }
+// ---------- Override Implementation ----------
+Override::Override(const String& n, String* actions, String* states, int len)
+  : BridgeDevice(n, actions, states, len) {}
+void Override::on() {
+  setState(1);
+}
+void Override::off() {
+  setState(0);
+}
+bool Override::isOn() {
+  return getStateNum() == 1;
+}
