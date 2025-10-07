@@ -10,16 +10,17 @@ protected:
   String name;
   int state;
   int possALen;
+  int possSLen;
   String* possibleStates;
   String* possibleActions;
   bool working;
   SemaphoreHandle_t mutex;
 public:
-  BridgeDevice(const String& n, String* pa, String* ps, int pal);
+  BridgeDevice(const String& n, String* pa, String* ps, int pal, int psl);
 
   void setState(int s);  //Threadsafe
   String getState();     //Threadsafe
-  String getName();
+  String getName() const;
   String getAction();
   String getAction(int idx);
   int getStateNum();
@@ -34,7 +35,7 @@ public:
   int gatePos;
   bool idle;
 
-  Gate(const String& n, String* actions, String* states, int len);
+  Gate(const String& n, String* actions, String* states,  int aLen, int sLen);
 
   void openNet();
   unsigned long openHard(unsigned long lastTime, int stepDelay);
@@ -42,7 +43,7 @@ public:
   void closeNet();
   unsigned long closeHard(unsigned long lastTime, int stepDelay);
 
-  void moveServoSmooth(int targetPos, unsigned long lastTime, int stepDelay);
+  unsigned long moveServoSmooth(int targetPos, unsigned long lastTime, int stepDelay);
   bool isIdle();
 
   void init(int pin1, int pin2);
@@ -70,7 +71,7 @@ public:
   int motorDriverPin1;
   int motorDriverPin2;
 
-  BridgeMechanism(const String& n, String* actions, String* states, int len);
+  BridgeMechanism(const String& n, String* actions, String* states,  int aLen, int sLen);
 
   void raiseNet();
   bool raiseHard();

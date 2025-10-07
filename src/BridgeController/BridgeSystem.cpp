@@ -10,11 +10,11 @@ static String gateActions[] = { "Lower", "Raise" };
 static String gateStates[] = { "Raised", "Lowered", "Raising", "Lowering" };
 
 BridgeSystem::BridgeSystem()
-  : gates("Gates", gateActions, gateStates, 2),
+  : gates("Gates", gateActions, gateStates, 2,4),
     alarms("Alarms", alarmActions, alarmStates, 2),
     trafficLights("TrafficLights", lightStates, 3),
     bridgeLights("BridgeLights", lightStates, 3),
-    mechanism("Bridge_Mechanism", mechActions, mechStates, 2),
+    mechanism("Bridge_Mechanism", mechActions, mechStates, 2,4),
     override("Override", overrideActions, overrideStates, 2),
     ultra0(), ultra1(), pir() {}
 

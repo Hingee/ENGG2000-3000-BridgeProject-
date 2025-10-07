@@ -44,14 +44,12 @@ void WebServerHandler::sendResponse(WiFiClient& client, BridgeSystem& system) {
 
   //CSS to Style Buttons
   client.println("<style>");
-  client.println("html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align:
-                 center; width: 100vw; height: 100vh; overflow: hidden; }");
+  client.println("html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align:center; width: 100vw; height: 100vh; overflow: hidden; }");
   client.println("h1 { font-size: 1.2em; margin: 5px 0; }");
   client.println("h2, h3 { font-size: 1em; margin: 3px 0; }");
   client.println("p { font-size: 1em; margin: 2px 0; }");
   client.println(".button { background-color: #4CAF50; border: none; color: white; padding: 8px 15px;");
-  client.println("text-decoration: none; font-size: 12px; margin: 2px; cursor: pointer; border-radius: 
-                5px; }");
+  client.println("text-decoration: none; font-size: 12px; margin: 2px; cursor: pointer; border-radius: 5px; }");
   client.println(".button2 {background-color: #555555;}");
   client.println("#sensorData { font-size: 0.9em; margin-top: 5px; }");
   client.println("</style></head>");
@@ -78,8 +76,8 @@ void WebServerHandler::sendResponse(WiFiClient& client, BridgeSystem& system) {
     client.println("    .then(response => response.json())");
     client.println("    .then(data => {");
     client.println("        document.getElementById('sensorData').innerHTML = ");
-    client.println("            'Ultrasonic_Front: ' + data.ultrasonic0 + ' cm<br>' +");
-    client.println("            'Ultrasonic_Back: ' + data.ultrasonic1 + ' cm<br>' +");
+    client.println("            'Ultrasonic_Front: ' + data.ultrasonic0 + ' <br>' +");
+    client.println("            'Ultrasonic_Back: ' + data.ultrasonic1 + ' <br>' +");
     client.println("            'PIR: ' + (data.pir ? 'Motion Detected' : 'No Motion');");
     client.println("    });");
     client.println("}");
@@ -99,12 +97,17 @@ void WebServerHandler::sendSensorData(WiFiClient& client, BridgeSystem& system) 
   client.println("Content-Type: application/json");
   client.println("Connection: close");
   client.println();
+  int ultra0int = system.ultra0.getDistance();
+  int ultra1int = system.ultra1.getDistance();
+
+  String ultra0str = (-1 == ultra0int) ? "No Echo" : String(ultra0int)+" cm";
+  String ultra1str = (-1 == ultra1int) ? "No Echo" : String(ultra1int)+" cm";
 
   // JSON with sensor values
   String json = "{";
-  json += "\"ultrasonic0\":" + String(system.ultra0.getDistance()) + ",";
-  json += "\"ultrasonic1\":" + String(system.ultra1.getDistance()) + ",";
-  json += "\"pir\":" + String(system.pir.isTriggered() ? 1 : 0) + ",";
+  json += "\"ultrasonic0\":\"" + ultra0str + "\",";
+  json += "\"ultrasonic1\":\"" + ultra1str + "\",";
+  json += "\"pir\":" + String(system.pir.isTriggered() ? 1 : 0);
   json += "}";
 
   client.println(json);

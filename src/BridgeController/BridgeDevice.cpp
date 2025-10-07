@@ -1,12 +1,13 @@
 #include "BridgeDevice.h"
 
 // ---------- Bridge Device Parent Class ----------
-BridgeDevice::BridgeDevice(const String& n, String* pa, String* ps, int pal) {
+BridgeDevice::BridgeDevice(const String& n, String* pa, String* ps, int pal, int psl) {
   name = n;
   state = 0;
   possibleActions = pa;
   possibleStates = ps;
   possALen = pal;
+  possSLen = psl;
   working = false;
 
   mutex = xSemaphoreCreateMutex();
@@ -32,7 +33,7 @@ void BridgeDevice::setState(int s) {
 String BridgeDevice::getState() {
   String temp;
   xSemaphoreTake(mutex, portMAX_DELAY);
-  if (state >= 0 && state < possALen) temp = possibleStates[state];
+  if (state >= 0 && state < possSLen) temp = possibleStates[state];
   else temp = "[BridgeDevice] Error: Unknown State";
   xSemaphoreGive(mutex);
   return temp;
@@ -57,7 +58,7 @@ String BridgeDevice::getAction() {
 }
 
 String BridgeDevice::getAction(int idx) {
-  if (idx >= possALen) return "[BridgeDevice] Error: Unknown Action " + i;
+  if (idx >= possALen) return "[BridgeDevice] Error: Unknown Action i";
   return possibleActions[idx];
 }
 
@@ -76,8 +77,8 @@ bool BridgeDevice::isWorking() {
 }
 
 // ---------- Gate Implementation ----------
-Gate::Gate(const String& n, String* actions, String* states, int len)
-  : BridgeDevice(n, actions, states, len) {}
+Gate::Gate(const String& n, String* actions, String* states, int aLen, int sLen)
+  : BridgeDevice(n, actions, states, aLen, sLen) {}
 
 void Gate::openNet() {
   setState(2);
@@ -144,7 +145,7 @@ void Gate::init(int pin1, int pin2) {
 
 // ---------- Alarm Implementation ----------
 Alarm::Alarm(const String& n, String* actions, String* states, int len)
-  : BridgeDevice(n, actions, states, len) {}
+  : BridgeDevice(n, actions, states, len, len) {}
 void Alarm::activate() {
   setState(0);
   Serial.println("[Alarm] Alarm On");
@@ -156,7 +157,7 @@ void Alarm::deactivate() {
 
 // ---------- Light Implementation ----------
 Light::Light(const String& n, String* states, int len)
-  : BridgeDevice(n, states, states, len) {}
+  : BridgeDevice(n, states, states, len, len) {}
 void Light::turnRed() {
   setState(0);
   Serial.print("[Light] ");
@@ -177,8 +178,8 @@ void Light::turnYellow() {
 }
 
 // ---------- BridgeMechanism Implementation ----------
-BridgeMechanism::BridgeMechanism(const String& n, String* actions, String* states, int len)
-  : BridgeDevice(n, actions, states, len) {
+BridgeMechanism::BridgeMechanism(const String& n, String* actions, String* states, int aLen, int sLen)
+  : BridgeDevice(n, actions, states, aLen, sLen) {
   revolutionsCurrent = 0.0;
   revolutionsToOpen = 50.0;
 }
@@ -257,7 +258,7 @@ void BridgeMechanism::init(int mp1, int mp2, int encPin) {
 
 // ---------- Override Implementation ----------
 Override::Override(const String& n, String* actions, String* states, int len)
-  : BridgeDevice(n, actions, states, len) {}
+  : BridgeDevice(n, actions, states, len, len) {}
 void Override::on() {
   setState(1);
 }

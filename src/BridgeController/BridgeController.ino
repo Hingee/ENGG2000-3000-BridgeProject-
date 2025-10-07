@@ -20,8 +20,8 @@
 #define US_ECHO_PIN_B 18
 
 //Motor
-#define MOTOR_PIN_1 27  //S3 board will have error from this
-#define MOTOR_PIN_2 26  //S3 board will have error from this
+#define MOTOR_PIN_1 40  //S3 board will have error from this
+#define MOTOR_PIN_2 41  //S3 board will have error from this
 
 //Encoder
 #define ENCODER_PIN 34      //Chose an interruptable pin
@@ -57,12 +57,8 @@ BridgeState state = AUTO;
 enum MechanismState { OPENING,
                       CLOSING,
                       IDLE };
-MechanismState mechanismState = IDLE;
-
-enum GateState { OPENING,
-                      CLOSING,
-                      IDLE };
-GateState gateState = IDLE;
+MechanismState roadwayState = IDLE;
+MechanismState gateState = IDLE;
 
 enum SensorScanningState { ULTRASONICDEFAULT,
                            PIRSAFETYCHECK,
@@ -129,7 +125,7 @@ void loop() {
     prevPulseCount = currentPulses;
 
     // Update revolutions depending on mechanism direction
-    switch (mechanismState) {
+    switch (roadwayState) {
       case OPENING:
         bridgeSystem->mechanism.incRev(pulses, PULSES_PER_REV);
         break;
@@ -171,10 +167,10 @@ void bridgeAuto() {
       }
 
       // Closing sequence condition
-      if (postOpenSensorDelay && millis() - prevTimeSensor >= sensorDelay && mechanismState == IDLE && distA == -1 && distB == -1) {
+      if (postOpenSensorDelay && millis() - prevTimeSensor >= sensorDelay && roadwayState == IDLE && distA == -1 && distB == -1) {
         Serial.println("[AUTO]{ULTRASONICDEFAULT} Begin Bridge Closing Sequence");
         postOpenSensorDelay = false;
-        mechanismState = CLOSING;
+        roadwayState = CLOSING;
       }
       break;
     case PIRSAFETYCHECK:
@@ -182,12 +178,12 @@ void bridgeAuto() {
         //Install PIR sensor code here:
         if(PIRdetection == false) {
           Serial.println("[AUTO]{PIRSAFETYCHECK} Begin Bridge Opening Sequence");
-          mechanismState = OPENING; 
+          roadwayState = OPENING; 
           sensorState = IDLE;
           targetPos = 0;
         } else {
           Serial.println("[AUTO]{PIRSAFETYCHECK} Begin Bridge Closing Sequence");
-          mechanismState = CLOSING;
+          roadwayState = CLOSING;
         }
         */
       // Placeholder for PIR logic; fall back to ultrasonic default for now.
@@ -201,10 +197,10 @@ void bridgeAuto() {
   }
 
   //Motor Functionality
-  switch (mechanismState) {
+  switch (roadwayState) {
     case OPENING:
       if (triggerMechRaise()) {
-        mechanismState = IDLE;
+        roadwayState = IDLE;
         mechCommandIssued = false;
         postOpenSensorDelay = true;
         prevTimeSensor = millis();
@@ -212,7 +208,7 @@ void bridgeAuto() {
       break;
     case CLOSING:
       if (triggerMechLower()) {
-        mechanismState = IDLE;
+        roadwayState = IDLE;
         mechCommandIssued = false;
         sensorState = ULTRASONICDEFAULT;
         gateState = OPENING;
@@ -248,17 +244,17 @@ void bridgeManual() {
   }
 
   if (bridgeSystem->mechanism.getStateNum() == 3) {
-    mechanismState = CLOSING;
+    roadwayState = CLOSING;
   } else if (bridgeSystem->mechanism.getStateNum() == 2) {
-    mechanismState = OPENING;
+    roadwayState = OPENING;
   }
 
-  switch (mechanismState) {
+  switch (roadwayState) {
     case OPENING:
-      if (bridgeSystem->mechanism.raiseHard()) mechanismState = IDLE;
+      if (bridgeSystem->mechanism.raiseHard()) roadwayState = IDLE;
       break;
     case CLOSING:
-      if (bridgeSystem->mechanism.lowerHard()) mechanismState = IDLE;
+      if (bridgeSystem->mechanism.lowerHard()) roadwayState = IDLE;
       break;
   }
 }
@@ -291,7 +287,7 @@ bool triggerMechLower() {
     bridgeSystem->mechanism.lowerNet();
     mechCommandIssued = true;
   }
-  return bridgeSystem->mechanism.lowerHard(lastServoMoveTime, servoStepDelay);
+  return bridgeSystem->mechanism.lowerHard();
 }
 
 bool triggerMechRaise() {
@@ -299,7 +295,5 @@ bool triggerMechRaise() {
     bridgeSystem->mechanism.raiseNet();
     mechCommandIssued = true;
   }
-  return bridgeSystem->mechanism.raiseHard(lastServoMoveTime, servoStepDelay);
+  return bridgeSystem->mechanism.raiseHard();
 }
-
-
