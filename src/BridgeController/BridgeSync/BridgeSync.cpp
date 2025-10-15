@@ -1,9 +1,3 @@
-//Sync for Bridge Open/Close Runtimes
-
-//IMPORTANT: This current program is written to be used to be manually modified to suit the required tests of the bridge
-//This program is designed to run until termination, reading the number of rotations it takes to complete a cycle of the bridge
-//When the motor is hitting its limit of bridge opening, shut off its power.
-
 #include <Arduino.h>
 
 //System Run Type (MANUAL OVERRIDE) 
@@ -24,12 +18,8 @@ const int pulsesPerRevolution = 700;
 
 static unsigned long prev = 0;
 
-void IRAM_ATTR onPulse() {
-    pulseCount++;
-}
-
 void setup() {
-    Serial.begin(9600);
+    Serial.begin(115200); //originally bud9600
     delay(100);
 
     pinMode(motorDriverPin1, OUTPUT);
@@ -56,6 +46,52 @@ void loop() {
     }
 }
 
+void syncCheck() {
+    long prevAlt = 0;
+    int endTime = 5000;
+
+    //infinite loop
+    while(true) {
+        prevAlt = millis();
+        while(millis() - prevAlt <= endTime) {
+            runMotorClockwise();
+            delay(1);
+        }
+
+        float forwardTotal = totalRotations;
+        haltMotor();
+        Serial.println();
+        Serial.print("Opening sequence of ");
+        Serial.print((millis() - prevAlt) / 1000);
+        Serial.print(" seconds done in ");
+        Serial.print(forwardTotal);
+        Serial.println(" revolutions.");
+        totalRotations = 0;
+        prevAlt = millis();   
+        delay(2000);
+
+        Serial.println("");
+        Serial.println("Lowering Bridge back to neutral state.");
+        Serial.println("Check for consistency alignment.");
+
+        float reverseRevolutions = 0.0;
+        while(reverseRevolutions <= forwardTotal) {
+            runMotorAntiClockwise();
+            delay(1);
+            noInterrupts();
+            unsigned long pulses = pulseCount;
+            pulseCount = 0;
+            interrupts();
+            reverseRevolutions += (float) pulses / pulsesPerRevolution;
+        }
+
+        Serial.print("Bridge closed at position ");
+        Serial.println(reverseRevolutions);
+
+        haltMotor();
+        endTime += 5000; //add 5 secs for next sequence
+    }
+}
 
 void runMotorClockwise() {
     digitalWrite(motorDriverPin1, HIGH);
@@ -104,50 +140,6 @@ void haltMotor() {
     digitalWrite(motorDriverPin2, LOW);  
 }
 
-void syncCheck() {
-    long prevAlt = 0;
-    int endTime = 5000;
-
-    //infinite loop
-    while(true) {
-        prevAlt = millis();
-        //initially run for 5 seconds
-        while(millis() - prevAlt <= endTime) {
-            runMotorClockwise();
-            delay(1);
-        }
-
-        float forwardTotal = totalRotations;
-        haltMotor();
-        Serial.println();
-        Serial.print("Opening sequence of ");
-        Serial.print((millis() - prevAlt) / 1000);
-        Serial.print(" seconds done in ");
-        Serial.print(forwardTotal);
-        Serial.println(" revolutions.");
-        totalRotations = 0;
-        prevAlt = millis();   
-        delay(2000); //chill out for a sec
-
-        Serial.println("");
-        Serial.println("Lowering Bridge back to neutral state.");
-        Serial.println("Check for consistency alignment.");
-
-        float reverseRevolutions = 0.0;
-        while(reverseRevolutions <= forwardTotal) {
-            runMotorAntiClockwise();
-            delay(1);
-            noInterrupts();
-            unsigned long pulses = pulseCount;
-            pulseCount = 0;
-            interrupts();
-            reverseRevolutions += (float) pulses / pulsesPerRevolution;
-        }
-
-        Serial.print("Bridge closed at position ");
-        Serial.println(reverseRevolutions);
-
-        haltMotor();
-        endTime += 5000; //add 5 secs for next sequence
-    }
+void IRAM_ATTR onPulse() {
+    pulseCount++;
 }
