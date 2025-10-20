@@ -7,6 +7,16 @@
 #include "BridgeSystem.h"
 
 // ------------------ Pin Configuration (change as needed) ------------------
+//Boat Lights
+#define BL_RED 15 
+#define BL_YELLOW 2 
+#define BL_GREEN 4 
+
+//Traffic Lights
+#define TL_RED 15 
+#define TL_YELLOW 2 
+#define TL_GREEN 4 
+
 //Servo
 #define SERVO_PIN_1 13  // GPIO13 for servo
 #define SERVO_PIN_2 12  // GPIO12 for servo
@@ -21,8 +31,8 @@
 #define US_ECHO_PIN_B 18
 
 //Motor
-#define MOTOR_PIN_1 40  //S3 board will have error from this
-#define MOTOR_PIN_2 41  //S3 board will have error from this
+#define MOTOR_PIN_1 40  //S3 board will have error from this 26
+#define MOTOR_PIN_2 41  //S3 board will have error from this 27
 
 //Encoder
 #define ENCODER_PIN 34      //Chose an interruptable pin
@@ -76,6 +86,9 @@ void setup() {
 
   ap.begin();
   bridgeSystem->gates.init(SERVO_PIN_1, SERVO_PIN_2);
+  bridgeSystem->trafficLights.init(TL_RED, TL_YELLOW, TL_GREEN);
+  bridgeSystem->bridgeLights.init(BL_RED, BL_YELLOW, BL_GREEN);
+  //bridgeSystem->alarms.init(0, 0, 0);
 
   //Ultrasonic
   pinMode(US_TRIG_PIN_F, OUTPUT);
@@ -149,7 +162,7 @@ void loop() {
 }
 
 void bridgeAuto() {
-  int distA = bridgeSystem->ultra0.readUltrasonic(US_TRIG_PIN_F, US_ECHO_PIN_F);
+  int distA = 10;
   int distB = bridgeSystem->ultra1.readUltrasonic(US_TRIG_PIN_B, US_ECHO_PIN_B);
   long timeDetected = 0;
   switch (state) {
@@ -159,8 +172,8 @@ void bridgeAuto() {
         Serial.println("[AUTO]{IDLE_CLOSE} Begin Bridge Safety Check");
         bridgeSystem->trafficLights.turnYellow();
         bridgeSystem->gates.closeNet();
-        bridgeSystem->alarms.on();
-        gateState = PEDESTRIAN_GATE_CLOSE;
+        bridgeSystem->alarms.activate();
+        state = PEDESTRIAN_GATE_CLOSE;
       }
       break;
     case PEDESTRIAN_GATE_CLOSE:
@@ -173,9 +186,9 @@ void bridgeAuto() {
       break;
     case SAFETY_CHECK:
       //DO PIR CHECK here
-      if (!isTriggered()) {
+      if (!bridgeSystem->pir.isTriggered()) {
         Serial.println("[AUTO]{SAFETY_CHECK} Clear of pedestrians");
-        bridgeSystem->trafficLights.trunRed();
+        bridgeSystem->trafficLights.turnRed();
         bridgeSystem->mechanism.raiseNet();
         state = OPENING;
       }
@@ -184,21 +197,24 @@ void bridgeAuto() {
       if (bridgeSystem->mechanism.raiseHard()) {
         bridgeSystem->bridgeLights.turnGreen();
         postOpenSensorDelay = true;
+        bridgeSystem->alarms.deactivate();
         timeDetected = millis();
         state = IDLE_OPEN;
       }
       break;
     case IDLE_OPEN:
       //Are boats gone no detection for 5s
+      distA = 30;
       if ((distA > 0 && distA <= US_DIST_COND) || (distB > 0 && distB <= US_DIST_COND)) {
-        timeDetected = milis();
+        timeDetected = millis();
       }
-      if (millis() - timeDetected < 5000) {
+      Serial.println(millis() - timeDetected);
+      if (millis() - timeDetected > 5000) {
         Serial.println("[AUTO]{IDLE_OPEN} No detection for 5s");
-        bridgeSystem->alarms.on();
+        bridgeSystem->alarms.activate();
         bridgeSystem->bridgeLights.turnRed();
         bridgeSystem->mechanism.lowerNet();
-        gateState = CLOSING;
+        state = CLOSING;
       }
       break;
     case CLOSING:
@@ -212,6 +228,7 @@ void bridgeAuto() {
       if (gateOpen()) {
         Serial.println("[AUTO]{PEDESTRIAN_GATE_OPEN} Finished Opening Gates");
         bridgeSystem->trafficLights.turnGreen();
+        bridgeSystem->alarms.deactivate();
         postOpenSensorDelay = true;
         state = IDLE_CLOSE;
       }
