@@ -8,20 +8,20 @@
 
 // ------------------ Pin Configuration (change as needed) ------------------
 //Servo
-#define SERVO_PIN_1 13  // GPIO13 for servo
-#define SERVO_PIN_2 12  // GPIO12 for servo
+#define SERVO_PIN_1 17  // GPIO13 for servo
+#define SERVO_PIN_2 5  // GPIO12 for servo
 
 // Ultrasonic Front
-#define US_TRIG_PIN_F 17
-#define US_ECHO_PIN_F 16
+#define US_TRIG_PIN_F 13
+#define US_ECHO_PIN_F 12
 
 // Ultrasonic Back
-#define US_TRIG_PIN_B 5
-#define US_ECHO_PIN_B 18
+#define US_TRIG_PIN_B 14
+#define US_ECHO_PIN_B 27
 
 //Motor
-#define MOTOR_PIN_1 40  //S3 board will have error from this
-#define MOTOR_PIN_2 41  //S3 board will have error from this
+#define MOTOR_PIN_1 25  //S3 board will have error from this
+#define MOTOR_PIN_2 33  //S3 board will have error from this
 
 //Encoder
 #define ENCODER_PIN 34      //Chose an interruptable pin

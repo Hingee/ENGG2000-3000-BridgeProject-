@@ -15,13 +15,14 @@ float totalRotations = 0.0;
 const int encoderPinA = 34;
 volatile unsigned long pulseCount = 0;
 const int pulsesPerRevolution = 700;
-unsigned long pulses = pulseCount;
 
 float globalSend = 0.0;
-
 float reverseRevolutions = 0.0;
-
 static unsigned long prev = 0;
+
+void IRAM_ATTR onPulse() {
+    pulseCount++;
+}
 
 void setup() {
     Serial.begin(115200); //originally bud9600
@@ -31,8 +32,6 @@ void setup() {
     pinMode(motorDriverPin2, OUTPUT);
     digitalWrite(motorDriverPin1, LOW);
     digitalWrite(motorDriverPin2, LOW);
-
-    void IRAM_ATTR onPulse();
     pinMode(encoderPinA, INPUT_PULLUP);
     attachInterrupt(digitalPinToInterrupt(encoderPinA), onPulse, RISING);
 }
@@ -127,7 +126,8 @@ void runMotorAntiClockwise() {
         unsigned long pulses = pulseCount;
         pulseCount = 0;
         interrupts();
-        float reverseRevolutions = (float) pulses / pulsesPerRevolution;
+        reverseRevolutions = (float) pulses / pulsesPerRevolution;
+        globalSend = 0.0;
     //    float revolutions = (float) pulses / pulsesPerRevolution;
         float rpm = reverseRevolutions * 60.0;
         totalRotations += reverseRevolutions; 
@@ -143,8 +143,4 @@ void runMotorAntiClockwise() {
 void haltMotor() {
     digitalWrite(motorDriverPin1, LOW);
     digitalWrite(motorDriverPin2, LOW);  
-}
-
-void IRAM_ATTR onPulse() {
-    pulseCount++;
 }
