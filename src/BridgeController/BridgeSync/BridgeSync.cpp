@@ -27,6 +27,7 @@ void setup() {
     digitalWrite(motorDriverPin1, LOW);
     digitalWrite(motorDriverPin2, LOW);
 
+    void IRAM_ATTR onPulse();
     pinMode(encoderPinA, INPUT_PULLUP);
     attachInterrupt(digitalPinToInterrupt(encoderPinA), onPulse, RISING);
 }
@@ -78,10 +79,6 @@ void syncCheck() {
         while(reverseRevolutions <= forwardTotal) {
             runMotorAntiClockwise();
             delay(1);
-            noInterrupts();
-            unsigned long pulses = pulseCount;
-            pulseCount = 0;
-            interrupts();
             reverseRevolutions += (float) pulses / pulsesPerRevolution;
         }
 
