@@ -38,6 +38,10 @@
 #define ENCODER_PIN 34      //Chose an interruptable pin
 #define PULSES_PER_REV 700  //may need adjusting
 
+//PIR
+#define BUZZER_PIN 35
+#define PIR_PIN 19
+
 //Network & System
 APHandler ap(IPAddress(192, 168, 1, 1), IPAddress(192, 168, 1, 1), IPAddress(255, 255, 255, 0));
 WebServerHandler webHandler;
@@ -95,6 +99,13 @@ void setup() {
   pinMode(US_ECHO_PIN_F, INPUT);
   pinMode(US_TRIG_PIN_B, OUTPUT);
   pinMode(US_ECHO_PIN_B, INPUT);
+
+  // Initialize buzzer pin
+  pinMode(BUZZER_PIN, OUTPUT);
+  pinMode(GREEN_LED_PIN, OUTPUT);
+  pinMode(YELLOW_LED_PIN, OUTPUT);
+  pinMode(RED_LED_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, LOW);
 
   bridgeSystem->mechanism.init(MOTOR_PIN_1, MOTOR_PIN_2, ENCODER_PIN);
 
