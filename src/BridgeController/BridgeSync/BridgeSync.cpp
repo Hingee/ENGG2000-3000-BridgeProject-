@@ -15,6 +15,11 @@ float totalRotations = 0.0;
 const int encoderPinA = 34;
 volatile unsigned long pulseCount = 0;
 const int pulsesPerRevolution = 700;
+unsigned long pulses = pulseCount;
+
+float globalSend = 0.0;
+
+float reverseRevolutions = 0.0;
 
 static unsigned long prev = 0;
 
@@ -75,16 +80,17 @@ void syncCheck() {
         Serial.println("Lowering Bridge back to neutral state.");
         Serial.println("Check for consistency alignment.");
 
-        float reverseRevolutions = 0.0;
-        while(reverseRevolutions <= forwardTotal) {
+      //  float reversTYRevolutions = 0.0;
+        float globalSend = 0.0;
+        while(globalSend <= forwardTotal) {
             runMotorAntiClockwise();
             delay(1);
-            reverseRevolutions += (float) pulses / pulsesPerRevolution;
         }
 
         Serial.print("Bridge closed at position ");
         Serial.println(reverseRevolutions);
 
+     //   reverseRevolutions = 0.0;
         haltMotor();
         endTime += 5000; //add 5 secs for next sequence
     }
@@ -121,14 +127,16 @@ void runMotorAntiClockwise() {
         unsigned long pulses = pulseCount;
         pulseCount = 0;
         interrupts();
-        float revolutions = (float) pulses / pulsesPerRevolution;
-        float rpm = revolutions * 60.0;
-        totalRotations += revolutions; 
+        float reverseRevolutions = (float) pulses / pulsesPerRevolution;
+    //    float revolutions = (float) pulses / pulsesPerRevolution;
+        float rpm = reverseRevolutions * 60.0;
+        totalRotations += reverseRevolutions; 
         Serial.print("Live RPM: ");
         Serial.print(rpm, 2);
         Serial.print(" | Revs Since Last Pulse: ");
-        Serial.println(revolutions, 2);
-        prev = millis();  
+        Serial.println(reverseRevolutions, 2);
+        prev = millis(); 
+        globalSend = reverseRevolutions; 
     }
 }
 
