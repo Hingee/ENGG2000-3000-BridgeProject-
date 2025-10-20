@@ -54,7 +54,7 @@ enum BridgeState { MANUAL,
                    AUTO };
 BridgeState state = AUTO;
 
-enum MechanismState { OPENING,
+enum MechanismState { OPENING, 
                       CLOSING,
                       IDLE };
 MechanismState roadwayState = IDLE;
@@ -156,6 +156,8 @@ void bridgeAuto() {
   int distA = bridgeSystem->ultra0.readUltrasonic(US_TRIG_PIN_F, US_ECHO_PIN_F);
   int distB = bridgeSystem->ultra1.readUltrasonic(US_TRIG_PIN_B, US_ECHO_PIN_B);
 
+  if (roadwayState != IDLE || gateState != IDLE) return; //remove if not working but good safe guard
+
   switch (sensorState) {
     case ULTRASONICDEFAULT:
       // Detection condition (within 20cm)
@@ -168,6 +170,7 @@ void bridgeAuto() {
 
       // Closing sequence condition
       if (postOpenSensorDelay && millis() - prevTimeSensor >= sensorDelay && roadwayState == IDLE && distA == -1 && distB == -1) {
+        //For above could change end to distA > 100 && distB > 100 for safety
         Serial.println("[AUTO]{ULTRASONICDEFAULT} Begin Bridge Closing Sequence");
         postOpenSensorDelay = false;
         roadwayState = CLOSING;
@@ -274,11 +277,11 @@ bool triggerGateClose() {
 
 bool triggerGateOpen() {
   if (!gateCommandIssued) {
-    bridgeSystem->gates.closeNet();
+    bridgeSystem->gates.openNet();
     gateCommandIssued = true;
   }
 
-  lastServoMoveTime = bridgeSystem->gates.closeHard(lastServoMoveTime, servoStepDelay);
+  lastServoMoveTime = bridgeSystem->gates.openHard(lastServoMoveTime, servoStepDelay);
   return bridgeSystem->gates.isIdle();
 }
 
