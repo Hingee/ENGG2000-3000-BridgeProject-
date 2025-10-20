@@ -78,6 +78,8 @@ BridgeState state = IDLE_CLOSE;
 void IRAM_ATTR onPulse();
 void networkTask(void* parameter);
 
+long timeDetected = 0;
+
 void setup() {
   Serial.begin(115200);
   delay(100);
@@ -162,13 +164,18 @@ void loop() {
 }
 
 void bridgeAuto() {
-  int distA = 10;
+  bool boatDetected = false;
+  int distA = bridgeSystem->ultra0.readUltrasonic(US_TRIG_PIN_F, US_ECHO_PIN_F);
   int distB = bridgeSystem->ultra1.readUltrasonic(US_TRIG_PIN_B, US_ECHO_PIN_B);
-  long timeDetected = 0;
+
+  if ((distA > 0 && distA <= US_DIST_COND) || (distB > 0 && distB <= US_DIST_COND)) {
+        boatDetected = true;
+        timeDetected = millis();
+  }
   switch (state) {
     case IDLE_CLOSE:
       //Has boat arrived
-      if ((distA > 0 && distA <= US_DIST_COND) || (distB > 0 && distB <= US_DIST_COND)) {
+      if (boatDetected) {
         Serial.println("[AUTO]{IDLE_CLOSE} Begin Bridge Safety Check");
         bridgeSystem->trafficLights.turnYellow();
         bridgeSystem->gates.closeNet();
@@ -198,17 +205,11 @@ void bridgeAuto() {
         bridgeSystem->bridgeLights.turnGreen();
         postOpenSensorDelay = true;
         bridgeSystem->alarms.deactivate();
-        timeDetected = millis();
         state = IDLE_OPEN;
       }
       break;
     case IDLE_OPEN:
       //Are boats gone no detection for 5s
-      distA = 30;
-      if ((distA > 0 && distA <= US_DIST_COND) || (distB > 0 && distB <= US_DIST_COND)) {
-        timeDetected = millis();
-      }
-      Serial.println(millis() - timeDetected);
       if (millis() - timeDetected > 5000) {
         Serial.println("[AUTO]{IDLE_OPEN} No detection for 5s");
         bridgeSystem->alarms.activate();
