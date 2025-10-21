@@ -18,29 +18,25 @@
 #define TL_GREEN 4 
 
 //Servo
-#define SERVO_PIN_1 13  // GPIO13 for servo
-#define SERVO_PIN_2 12  // GPIO12 for servo
+#define SERVO_PIN_1 17  // GPIO13 for servo
+#define SERVO_PIN_2 5  // GPIO12 for servo
 
 // Ultrasonic Front
-#define US_TRIG_PIN_F 17
-#define US_ECHO_PIN_F 16
+#define US_TRIG_PIN_F 13
+#define US_ECHO_PIN_F 12
 #define US_DIST_COND 20
 
 // Ultrasonic Back
-#define US_TRIG_PIN_B 5
-#define US_ECHO_PIN_B 18
+#define US_TRIG_PIN_B 14
+#define US_ECHO_PIN_B 27
 
 //Motor
-#define MOTOR_PIN_1 40  //S3 board will have error from this 26
-#define MOTOR_PIN_2 41  //S3 board will have error from this 27
+#define MOTOR_PIN_1 25  //S3 board will have error from this 26
+#define MOTOR_PIN_2 33  //S3 board will have error from this 27
 
 //Encoder
-#define ENCODER_PIN 34      //Chose an interruptable pin
+#define ENCODER_PIN 26      //Chose an interruptable pin
 #define PULSES_PER_REV 700  //may need adjusting
-
-//PIR
-#define BUZZER_PIN 35
-#define PIR_PIN 19
 
 //Network & System
 APHandler ap(IPAddress(192, 168, 1, 1), IPAddress(192, 168, 1, 1), IPAddress(255, 255, 255, 0));
@@ -82,8 +78,6 @@ BridgeState state = IDLE_CLOSE;
 void IRAM_ATTR onPulse();
 void networkTask(void* parameter);
 
-long timeDetected = 0;
-
 void setup() {
   Serial.begin(115200);
   delay(100);
@@ -101,13 +95,6 @@ void setup() {
   pinMode(US_ECHO_PIN_F, INPUT);
   pinMode(US_TRIG_PIN_B, OUTPUT);
   pinMode(US_ECHO_PIN_B, INPUT);
-
-  // Initialize buzzer pin
-  pinMode(BUZZER_PIN, OUTPUT);
-  pinMode(GREEN_LED_PIN, OUTPUT);
-  pinMode(YELLOW_LED_PIN, OUTPUT);
-  pinMode(RED_LED_PIN, OUTPUT);
-  digitalWrite(BUZZER_PIN, LOW);
 
   bridgeSystem->mechanism.init(MOTOR_PIN_1, MOTOR_PIN_2, ENCODER_PIN);
 
@@ -175,18 +162,13 @@ void loop() {
 }
 
 void bridgeAuto() {
-  bool boatDetected = false;
-  int distA = bridgeSystem->ultra0.readUltrasonic(US_TRIG_PIN_F, US_ECHO_PIN_F);
+  int distA = 10; //changeable
   int distB = bridgeSystem->ultra1.readUltrasonic(US_TRIG_PIN_B, US_ECHO_PIN_B);
-
-  if ((distA > 0 && distA <= US_DIST_COND) || (distB > 0 && distB <= US_DIST_COND)) {
-        boatDetected = true;
-        timeDetected = millis();
-  }
+  long timeDetected = 0;
   switch (state) {
     case IDLE_CLOSE:
       //Has boat arrived
-      if (boatDetected) {
+      if ((distA > 0 && distA <= US_DIST_COND) || (distB > 0 && distB <= US_DIST_COND)) {
         Serial.println("[AUTO]{IDLE_CLOSE} Begin Bridge Safety Check");
         bridgeSystem->trafficLights.turnYellow();
         bridgeSystem->gates.closeNet();
@@ -216,11 +198,17 @@ void bridgeAuto() {
         bridgeSystem->bridgeLights.turnGreen();
         postOpenSensorDelay = true;
         bridgeSystem->alarms.deactivate();
+        timeDetected = millis();
         state = IDLE_OPEN;
       }
       break;
     case IDLE_OPEN:
       //Are boats gone no detection for 5s
+      distA = 30;
+      if ((distA > 0 && distA <= US_DIST_COND) || (distB > 0 && distB <= US_DIST_COND)) {
+        timeDetected = millis();
+      }
+      Serial.println(millis() - timeDetected);
       if (millis() - timeDetected > 5000) {
         Serial.println("[AUTO]{IDLE_OPEN} No detection for 5s");
         bridgeSystem->alarms.activate();

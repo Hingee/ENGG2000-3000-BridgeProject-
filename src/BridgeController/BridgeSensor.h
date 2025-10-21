@@ -33,7 +33,7 @@ public:
   PIR();
   void setTriggerd(boolean t);
   boolean isTriggered();
-  int read();
+//  int read();
 };
 
 #endif
