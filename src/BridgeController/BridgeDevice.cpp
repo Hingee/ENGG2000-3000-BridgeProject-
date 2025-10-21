@@ -158,20 +158,41 @@ void Alarm::deactivate() {
 // ---------- Light Implementation ----------
 Light::Light(const String& n, String* states, int len)
   : BridgeDevice(n, states, states, len, len) {}
+void Light::init(int rPin, int yPin, int gPin) {
+  redPin = rPin;
+  yellowPin = yPin;
+  greenPin = gPin;
+  
+  pinMode(redPin, OUTPUT);
+  pinMode(yellowPin, OUTPUT);
+  pinMode(greenPin, OUTPUT);
+}
 void Light::turnRed() {
   setState(0);
+  digitalWrite(redPin, HIGH);
+  digitalWrite(yellowPin, LOW);
+  digitalWrite(greenPin, LOW);
+  
   Serial.print("[Light] ");
   Serial.print(name);
   Serial.println(" Red");
 }
 void Light::turnGreen() {
   setState(1);
+  digitalWrite(redPin, LOW);
+  digitalWrite(yellowPin, LOW);
+  digitalWrite(greenPin, HIGH);
+  
   Serial.print("[Light] ");
   Serial.print(name);
   Serial.println(" Green");
 }
 void Light::turnYellow() {
   setState(2);
+  digitalWrite(redPin, LOW);
+  digitalWrite(yellowPin, HIGH);
+  digitalWrite(greenPin, LOW);
+  
   Serial.print("[Light] ");
   Serial.print(name);
   Serial.println(" Yellow");

@@ -58,7 +58,12 @@ public:
 
 class Light : public BridgeDevice {
 public:
+  int greenPin;
+  int redPin;
+  int yellowPin;
+  
   Light(const String& n, String* states, int len);
+  void init(int rPin, int yPin, int gPin);
   void turnRed();
   void turnGreen();
   void turnYellow();

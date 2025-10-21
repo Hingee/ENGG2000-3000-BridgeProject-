@@ -62,3 +62,6 @@ boolean PIR::isTriggered() {
   xSemaphoreGive(mutex);
   return temp;
 }
+//boolean PIR::read() {
+//  val = digitalRead(PIR_PIN);  // read input value
+//}

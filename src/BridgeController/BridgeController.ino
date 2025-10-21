@@ -7,24 +7,35 @@
 #include "BridgeSystem.h"
 
 // ------------------ Pin Configuration (change as needed) ------------------
+//Boat Lights
+#define BL_RED 15 
+#define BL_YELLOW 2 
+#define BL_GREEN 4 
+
+//Traffic Lights
+#define TL_RED 15 
+#define TL_YELLOW 2 
+#define TL_GREEN 4 
+
 //Servo
-#define SERVO_PIN_1 13  // GPIO13 for servo
-#define SERVO_PIN_2 12  // GPIO12 for servo
+#define SERVO_PIN_1 17  // GPIO13 for servo
+#define SERVO_PIN_2 5  // GPIO12 for servo
 
 // Ultrasonic Front
-#define US_TRIG_PIN_F 17
-#define US_ECHO_PIN_F 16
+#define US_TRIG_PIN_F 13
+#define US_ECHO_PIN_F 12
+#define US_DIST_COND 20
 
 // Ultrasonic Back
-#define US_TRIG_PIN_B 5
-#define US_ECHO_PIN_B 18
+#define US_TRIG_PIN_B 14
+#define US_ECHO_PIN_B 27
 
 //Motor
-#define MOTOR_PIN_1 26  //S3 board will have error from this
-#define MOTOR_PIN_2 27  //S3 board will have error from this
+#define MOTOR_PIN_1 25  //S3 board will have error from this 26
+#define MOTOR_PIN_2 33  //S3 board will have error from this 27
 
 //Encoder
-#define ENCODER_PIN 34      //Chose an interruptable pin
+#define ENCODER_PIN 26      //Chose an interruptable pin
 #define PULSES_PER_REV 700  //may need adjusting
 
 //Network & System
@@ -43,30 +54,25 @@ const unsigned long refreshInterval = 100;  //every 500 ms
 // Sensor reactivation delay after opening
 bool postOpenSensorDelay = false;
 int sensorDelay = 10000;  //1000 per second
-long prevTimeSensor = 0;
 
 // Encoder pulse counter (safe for ISR)
 volatile unsigned long pulseCount = 0;
 unsigned long prevPulseCount = 0;
 
 // ---------- STATE MACHINES ----------
-enum BridgeState { MANUAL,
-                   AUTO };
-BridgeState state = AUTO;
+enum BridgeMode { MANUAL,
+                  AUTO };
+BridgeMode mode = AUTO;
 
-enum MechanismState { OPENING, 
-                      CLOSING,
-                      IDLE };
-MechanismState roadwayState = IDLE;
-MechanismState gateState = IDLE;
-
-enum SensorScanningState { ULTRASONICDEFAULT,
-                           PIRSAFETYCHECK,
-                           IDLE_SENSOR };
-SensorScanningState sensorState = ULTRASONICDEFAULT;
-
-bool gateCommandIssued = false;
-bool mechCommandIssued = false;
+enum BridgeState { OPENING,
+                   PEDESTRIAN_GATE_OPEN,
+                   IDLE_OPEN,
+                   CLOSING,
+                   IDLE_CLOSE,
+                   PEDESTRIAN_GATE_CLOSE,
+                   SAFETY_CHECK,
+};
+BridgeState state = IDLE_CLOSE;
 
 //Forward Declarations
 void IRAM_ATTR onPulse();
@@ -80,6 +86,9 @@ void setup() {
 
   ap.begin();
   bridgeSystem->gates.init(SERVO_PIN_1, SERVO_PIN_2);
+  bridgeSystem->trafficLights.init(TL_RED, TL_YELLOW, TL_GREEN);
+  bridgeSystem->bridgeLights.init(BL_RED, BL_YELLOW, BL_GREEN);
+  //bridgeSystem->alarms.init(0, 0, 0);
 
   //Ultrasonic
   pinMode(US_TRIG_PIN_F, OUTPUT);
@@ -125,7 +134,7 @@ void loop() {
     prevPulseCount = currentPulses;
 
     // Update revolutions depending on mechanism direction
-    switch (roadwayState) {
+    switch (state) {
       case OPENING:
         bridgeSystem->mechanism.incRev(pulses, PULSES_PER_REV);
         break;
@@ -135,12 +144,12 @@ void loop() {
     }
 
     if (bridgeSystem->override.isOn()) {
-      state = MANUAL;
+      mode = MANUAL;
     } else {
-      state = AUTO;
+      mode = AUTO;
     }
 
-    switch (state) {
+    switch (mode) {
       case AUTO:
         bridgeAuto();
         break;
@@ -153,87 +162,75 @@ void loop() {
 }
 
 void bridgeAuto() {
-  int distA = bridgeSystem->ultra0.readUltrasonic(US_TRIG_PIN_F, US_ECHO_PIN_F);
+  int distA = 10; //changeable
   int distB = bridgeSystem->ultra1.readUltrasonic(US_TRIG_PIN_B, US_ECHO_PIN_B);
-
-  if (roadwayState != IDLE || gateState != IDLE) return; //remove if not working but good safe guard
-
-  switch (sensorState) {
-    case ULTRASONICDEFAULT:
-      // Detection condition (within 20cm)
-      if ((distA > 0 && distA <= 20) || (distB > 0 && distB <= 20)) {
-        Serial.println("[AUTO]{ULTRASONICDEFAULT} Begin Bridge Safety Check");
-
+  long timeDetected = 0;
+  switch (state) {
+    case IDLE_CLOSE:
+      //Has boat arrived
+      if ((distA > 0 && distA <= US_DIST_COND) || (distB > 0 && distB <= US_DIST_COND)) {
+        Serial.println("[AUTO]{IDLE_CLOSE} Begin Bridge Safety Check");
         bridgeSystem->trafficLights.turnYellow();
-        gateState = CLOSING;
-      }
-
-      // Closing sequence condition
-      if (postOpenSensorDelay && millis() - prevTimeSensor >= sensorDelay && roadwayState == IDLE && distA == -1 && distB == -1) {
-        //For above could change end to distA > 100 && distB > 100 for safety
-        Serial.println("[AUTO]{ULTRASONICDEFAULT} Begin Bridge Closing Sequence");
-        postOpenSensorDelay = false;
-        roadwayState = CLOSING;
+        bridgeSystem->gates.closeNet();
+        bridgeSystem->alarms.activate();
+        state = PEDESTRIAN_GATE_CLOSE;
       }
       break;
-    case PIRSAFETYCHECK:
-      /*
-        //Install PIR sensor code here:
-        if(PIRdetection == false) {
-          Serial.println("[AUTO]{PIRSAFETYCHECK} Begin Bridge Opening Sequence");
-          roadwayState = OPENING; 
-          sensorState = IDLE;
-          targetPos = 0;
-        } else {
-          Serial.println("[AUTO]{PIRSAFETYCHECK} Begin Bridge Closing Sequence");
-          roadwayState = CLOSING;
-        }
-        */
-      // Placeholder for PIR logic; fall back to ultrasonic default for now.
-      // Implement PIR readings & decision here.
-      // Temporary fallback to avoid getting stuck:
-      sensorState = ULTRASONICDEFAULT;
-      break;
-    case IDLE:
-      Serial.println("[AUTO]{IDLE} SENSOR: Waiting for bridge state transition...");
-      break;
-  }
-
-  //Motor Functionality
-  switch (roadwayState) {
-    case OPENING:
-      if (triggerMechRaise()) {
-        roadwayState = IDLE;
-        mechCommandIssued = false;
-        postOpenSensorDelay = true;
-        prevTimeSensor = millis();
-      }
-      break;
-    case CLOSING:
-      if (triggerMechLower()) {
-        roadwayState = IDLE;
-        mechCommandIssued = false;
-        sensorState = ULTRASONICDEFAULT;
-        gateState = OPENING;
-      }
-      break;
-  }
-
-  //Gate Functionality
-  switch (gateState) {
-    case OPENING:
-      if (triggerGateOpen()) {
-        gateState = IDLE;
-        gateCommandIssued = false;
-        bridgeSystem->trafficLights.turnGreen();
-      }
-      break;
-    case CLOSING:
-      if (triggerGateClose()) {
-        gateState = IDLE;
-        gateCommandIssued = false;
-        sensorState = PIRSAFETYCHECK;
+    case PEDESTRIAN_GATE_CLOSE:
+      if (gateClose()) {
+        Serial.println("[AUTO]{PEDESTRIAN_GATE_CLOSE} Finished Closing Gates");
         bridgeSystem->trafficLights.turnRed();
+        bridgeSystem->bridgeLights.turnRed();
+        state = SAFETY_CHECK;
+      }
+      break;
+    case SAFETY_CHECK:
+      //DO PIR CHECK here
+      if (!bridgeSystem->pir.isTriggered()) {
+        Serial.println("[AUTO]{SAFETY_CHECK} Clear of pedestrians");
+        bridgeSystem->trafficLights.turnRed();
+        bridgeSystem->mechanism.raiseNet();
+        state = OPENING;
+      }
+      break;
+    case OPENING:
+      if (bridgeSystem->mechanism.raiseHard()) {
+        bridgeSystem->bridgeLights.turnGreen();
+        postOpenSensorDelay = true;
+        bridgeSystem->alarms.deactivate();
+        timeDetected = millis();
+        state = IDLE_OPEN;
+      }
+      break;
+    case IDLE_OPEN:
+      //Are boats gone no detection for 5s
+      distA = 30;
+      if ((distA > 0 && distA <= US_DIST_COND) || (distB > 0 && distB <= US_DIST_COND)) {
+        timeDetected = millis();
+      }
+      Serial.println(millis() - timeDetected);
+      if (millis() - timeDetected > 5000) {
+        Serial.println("[AUTO]{IDLE_OPEN} No detection for 5s");
+        bridgeSystem->alarms.activate();
+        bridgeSystem->bridgeLights.turnRed();
+        bridgeSystem->mechanism.lowerNet();
+        state = CLOSING;
+      }
+      break;
+    case CLOSING:
+      if (bridgeSystem->mechanism.lowerHard()) {
+        Serial.println("[AUTO]{CLOSING} Finished Closing");
+        bridgeSystem->gates.openNet();
+        state = PEDESTRIAN_GATE_OPEN;
+      }
+      break;
+    case PEDESTRIAN_GATE_OPEN:
+      if (gateOpen()) {
+        Serial.println("[AUTO]{PEDESTRIAN_GATE_OPEN} Finished Opening Gates");
+        bridgeSystem->trafficLights.turnGreen();
+        bridgeSystem->alarms.deactivate();
+        postOpenSensorDelay = true;
+        state = IDLE_CLOSE;
       }
       break;
   }
@@ -247,17 +244,17 @@ void bridgeManual() {
   }
 
   if (bridgeSystem->mechanism.getStateNum() == 3) {
-    roadwayState = CLOSING;
+    state = CLOSING;
   } else if (bridgeSystem->mechanism.getStateNum() == 2) {
-    roadwayState = OPENING;
+    state = OPENING;
   }
 
-  switch (roadwayState) {
+  switch (state) {
     case OPENING:
-      if (bridgeSystem->mechanism.raiseHard()) roadwayState = IDLE;
+      if (bridgeSystem->mechanism.raiseHard()) state = IDLE_OPEN;
       break;
     case CLOSING:
-      if (bridgeSystem->mechanism.lowerHard()) roadwayState = IDLE;
+      if (bridgeSystem->mechanism.lowerHard()) state = IDLE_CLOSE;
       break;
   }
 }
@@ -266,37 +263,12 @@ void IRAM_ATTR onPulse() {
   pulseCount++;
 }
 
-bool triggerGateClose() {
-  if (!gateCommandIssued) {
-    bridgeSystem->gates.closeNet();
-    gateCommandIssued = true;
-  }
+bool gateClose() {
   lastServoMoveTime = bridgeSystem->gates.closeHard(lastServoMoveTime, servoStepDelay);
   return bridgeSystem->gates.isIdle();
 }
 
-bool triggerGateOpen() {
-  if (!gateCommandIssued) {
-    bridgeSystem->gates.openNet();
-    gateCommandIssued = true;
-  }
-
+bool gateOpen() {
   lastServoMoveTime = bridgeSystem->gates.openHard(lastServoMoveTime, servoStepDelay);
   return bridgeSystem->gates.isIdle();
-}
-
-bool triggerMechLower() {
-  if (!mechCommandIssued) {
-    bridgeSystem->mechanism.lowerNet();
-    mechCommandIssued = true;
-  }
-  return bridgeSystem->mechanism.lowerHard();
-}
-
-bool triggerMechRaise() {
-  if (!mechCommandIssued) {
-    bridgeSystem->mechanism.raiseNet();
-    mechCommandIssued = true;
-  }
-  return bridgeSystem->mechanism.raiseHard();
 }
