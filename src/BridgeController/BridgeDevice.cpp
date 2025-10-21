@@ -154,6 +154,10 @@ void Alarm::deactivate() {
   setState(1);
   Serial.println("[Alarm] Alarm Off");
 }
+void Alarm::playNote(int alarmPin) {
+  digitalWrite(alarmPin, HIGH);
+  digitalWrite(alarmPin, LOW);
+}
 
 // ---------- Light Implementation ----------
 Light::Light(const String& n, String* states, int len)

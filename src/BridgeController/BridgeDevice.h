@@ -54,6 +54,7 @@ public:
   Alarm(const String& n, String* actions, String* states, int len);
   void activate();
   void deactivate();
+  void playNote(int alarmPin);
 };
 
 class Light : public BridgeDevice {

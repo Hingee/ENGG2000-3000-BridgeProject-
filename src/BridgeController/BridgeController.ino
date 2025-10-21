@@ -102,11 +102,11 @@ void setup() {
   pinMode(US_ECHO_PIN_B, INPUT);
 
   // Initialize buzzer pin
-//  pinMode(BUZZER_PIN, OUTPUT);
+  pinMode(BUZZER_PIN, OUTPUT);
 //  pinMode(GREEN_LED_PIN, OUTPUT);
 //  pinMode(YELLOW_LED_PIN, OUTPUT);
 //  pinMode(RED_LED_PIN, OUTPUT);
-//  digitalWrite(BUZZER_PIN, LOW);
+  digitalWrite(BUZZER_PIN, LOW);
 
   bridgeSystem->mechanism.init(MOTOR_PIN_1, MOTOR_PIN_2, ENCODER_PIN);
 
@@ -134,6 +134,9 @@ void networkTask(void* parameter) {
 }
 
 void loop() {
+  if (bridgeSystem->alarms.getStateNum() == 0) {
+    playNote(BUZZER_PIN);
+  }
   if (millis() - lastRefresh >= refreshInterval) {
     lastRefresh = millis();
 
