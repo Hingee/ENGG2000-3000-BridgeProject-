@@ -18,6 +18,10 @@ const int pulsesPerRevolution = 700;
 
 static unsigned long prev = 0;
 
+void IRAM_ATTR onPulse() {
+    pulseCount++;
+}
+
 void setup() {
     Serial.begin(115200); //originally bud9600
     delay(100);
@@ -127,10 +131,10 @@ void runMotorAntiClockwise() {
         float revolutions = (float) pulses / pulsesPerRevolution;
         float rpm = revolutions * 60.0;
         totalRotations += revolutions; 
-        Serial.print("Live RPM: ");
-        Serial.print(rpm, 2);
-        Serial.print(" | Revs Since Last Pulse: ");
-        Serial.println(revolutions, 2);
+    //    Serial.print("Live RPM: ");
+    //    Serial.print(rpm, 2);
+    //    Serial.print("Revs Since Last Pulse: ");
+    //    Serial.println(revolutions, 2);
         prev = millis();  
     }
 }
@@ -138,8 +142,4 @@ void runMotorAntiClockwise() {
 void haltMotor() {
     digitalWrite(motorDriverPin1, LOW);
     digitalWrite(motorDriverPin2, LOW);  
-}
-
-void IRAM_ATTR onPulse() {
-    pulseCount++;
 }

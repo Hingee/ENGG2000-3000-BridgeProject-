@@ -20,8 +20,8 @@
 #define US_ECHO_PIN_B 18
 
 //Motor
-#define MOTOR_PIN_1 40  //S3 board will have error from this
-#define MOTOR_PIN_2 41  //S3 board will have error from this
+#define MOTOR_PIN_1 26  //S3 board will have error from this
+#define MOTOR_PIN_2 27  //S3 board will have error from this
 
 //Encoder
 #define ENCODER_PIN 34      //Chose an interruptable pin
