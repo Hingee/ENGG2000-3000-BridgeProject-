@@ -38,6 +38,10 @@
 #define ENCODER_PIN 26      //Chose an interruptable pin
 #define PULSES_PER_REV 700  //may need adjusting
 
+//PIR
+#define BUZZER_PIN 35
+#define PIR_PIN 19
+
 //Network & System
 APHandler ap(IPAddress(192, 168, 1, 1), IPAddress(192, 168, 1, 1), IPAddress(255, 255, 255, 0));
 WebServerHandler webHandler;
@@ -54,6 +58,7 @@ const unsigned long refreshInterval = 100;  //every 500 ms
 // Sensor reactivation delay after opening
 bool postOpenSensorDelay = false;
 int sensorDelay = 10000;  //1000 per second
+long timeDetected = 0;
 
 // Encoder pulse counter (safe for ISR)
 volatile unsigned long pulseCount = 0;
@@ -95,6 +100,13 @@ void setup() {
   pinMode(US_ECHO_PIN_F, INPUT);
   pinMode(US_TRIG_PIN_B, OUTPUT);
   pinMode(US_ECHO_PIN_B, INPUT);
+
+  // Initialize buzzer pin
+//  pinMode(BUZZER_PIN, OUTPUT);
+//  pinMode(GREEN_LED_PIN, OUTPUT);
+//  pinMode(YELLOW_LED_PIN, OUTPUT);
+//  pinMode(RED_LED_PIN, OUTPUT);
+//  digitalWrite(BUZZER_PIN, LOW);
 
   bridgeSystem->mechanism.init(MOTOR_PIN_1, MOTOR_PIN_2, ENCODER_PIN);
 
@@ -162,13 +174,18 @@ void loop() {
 }
 
 void bridgeAuto() {
-  int distA = 10; //changeable
+  bool boatDetected = false;
+  int distA = bridgeSystem->ultra0.readUltrasonic(US_TRIG_PIN_F, US_ECHO_PIN_F);
   int distB = bridgeSystem->ultra1.readUltrasonic(US_TRIG_PIN_B, US_ECHO_PIN_B);
-  long timeDetected = 0;
+  
+  if ((distA > 0 && distA <= US_DIST_COND) || (distB > 0 && distB <= US_DIST_COND)) {
+        boatDetected = true;
+        timeDetected = millis();
+  }
   switch (state) {
     case IDLE_CLOSE:
       //Has boat arrived
-      if ((distA > 0 && distA <= US_DIST_COND) || (distB > 0 && distB <= US_DIST_COND)) {
+      if (boatDetected) {
         Serial.println("[AUTO]{IDLE_CLOSE} Begin Bridge Safety Check");
         bridgeSystem->trafficLights.turnYellow();
         bridgeSystem->gates.closeNet();
@@ -198,17 +215,11 @@ void bridgeAuto() {
         bridgeSystem->bridgeLights.turnGreen();
         postOpenSensorDelay = true;
         bridgeSystem->alarms.deactivate();
-        timeDetected = millis();
         state = IDLE_OPEN;
       }
       break;
     case IDLE_OPEN:
       //Are boats gone no detection for 5s
-      distA = 30;
-      if ((distA > 0 && distA <= US_DIST_COND) || (distB > 0 && distB <= US_DIST_COND)) {
-        timeDetected = millis();
-      }
-      Serial.println(millis() - timeDetected);
       if (millis() - timeDetected > 5000) {
         Serial.println("[AUTO]{IDLE_OPEN} No detection for 5s");
         bridgeSystem->alarms.activate();
