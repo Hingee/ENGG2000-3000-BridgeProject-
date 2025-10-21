@@ -8,14 +8,14 @@
 
 // ------------------ Pin Configuration (change as needed) ------------------
 //Boat Lights
-#define BL_RED 15 
+#define BL_RED 4 
 #define BL_YELLOW 2 
-#define BL_GREEN 4 
+#define BL_GREEN 15 
 
 //Traffic Lights
-#define TL_RED 15 
-#define TL_YELLOW 2 
-#define TL_GREEN 4 
+#define TL_RED 35
+#define TL_YELLOW 19 //temporary
+#define TL_GREEN 34 
 
 //Servo
 #define SERVO_PIN_1 17  // GPIO13 for servo
