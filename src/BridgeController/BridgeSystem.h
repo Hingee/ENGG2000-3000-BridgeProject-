@@ -11,8 +11,8 @@ public:
   //Mechanisms
   Gate gates;
   Alarm alarms;
-  Light trafficLights;
-  Light bridgeLights;
+  Light pedestrianLights;
+  Light boatLights;
   BridgeMechanism mechanism;
   Override override;
 

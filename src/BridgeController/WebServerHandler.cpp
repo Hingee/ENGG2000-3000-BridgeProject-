@@ -64,8 +64,8 @@ void WebServerHandler::sendResponse(WiFiClient& client, BridgeSystem& system) {
     renderTransFlipButton(client, system.mechanism, "mechanismState");
     renderFlipButton(client, system.alarms);
     renderTransFlipButton(client, system.gates, "gatesState");
-    renderRadioButton(client, system.trafficLights);
-    renderRadioButton(client, system.bridgeLights);
+    renderRadioButton(client, system.pedestrianLights);
+    renderRadioButton(client, system.boatLights);
   } else {
     client.println("<h3>Sensor Readings</h3>");
     client.println("<div id='sensorData'>Loading...</div>");
@@ -81,7 +81,7 @@ void WebServerHandler::sendResponse(WiFiClient& client, BridgeSystem& system) {
     client.println("            'PIR: ' + (data.pir ? 'Motion Detected' : 'No Motion');");
     client.println("    });");
     client.println("}");
-    client.println("setInterval(updateSensors, 1000);");
+    client.println("setInterval(updateSensors, 500);");
     client.println("updateSensors();");
     client.println("</script>");
   }
@@ -191,7 +191,7 @@ void WebServerHandler::renderTransFlipButton(WiFiClient& client, BridgeDevice& d
 }
 
 void WebServerHandler::renderRadioButton(WiFiClient& client, BridgeDevice& device) {
-  const int statesCount = 3;
+  const int statesCount = device.getNumStates();
   String name = device.getName();
   int currState = device.getStateNum();
 

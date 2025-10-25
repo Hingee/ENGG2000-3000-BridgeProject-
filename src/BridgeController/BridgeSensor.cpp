@@ -49,19 +49,39 @@ int US::getDistance() {
 PIR::PIR()
   : BridgeSensor("Passive Infrared Sensor") {
   isTriggerd = false;
+  state = LOW;
 }
-void PIR::setTriggerd(boolean t) {
+void PIR::setTriggered(bool t) {
   xSemaphoreTake(mutex, portMAX_DELAY);
   isTriggerd = t;
   xSemaphoreGive(mutex);
 }
-boolean PIR::isTriggered() {
-  boolean temp;
+bool PIR::isTriggered() {
+  bool temp;
   xSemaphoreTake(mutex, portMAX_DELAY);
   temp = isTriggerd;
   xSemaphoreGive(mutex);
   return temp;
 }
-//boolean PIR::read() {
-//  val = digitalRead(PIR_PIN);  // read input value
-//}
+bool PIR::isNotTriggeredForSec(int n) {
+  if(!isTriggered() && (millis() - lastTriggeredTime > n*1000)) return true;
+  return false;
+}
+bool PIR::read(int pin) {
+  if(millis() - lastReadingTime < 500 ) return isTriggered(); //Holds val for 0.5s
+  
+  lastReadingTime = millis();
+  int val = digitalRead(pin);  // read input value
+  
+  if(val == HIGH && state == LOW) { //Motion Detected
+    state == HIGH;
+    lastTriggeredTime = millis();
+    setTriggered(true);
+    return true;
+  }else if (state == HIGH) {
+    state = LOW;
+  }
+
+  setTriggered(false);
+  return false;
+}

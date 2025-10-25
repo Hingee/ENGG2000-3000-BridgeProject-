@@ -26,6 +26,7 @@ public:
   int getStateNum();
   void setWorking(bool w);  //Threadsafe
   bool isWorking();         //Threadsafe
+  int getNumStates();       //Threadsafe
 };
 
 class Gate : public BridgeDevice {
@@ -51,10 +52,11 @@ public:
 
 class Alarm : public BridgeDevice {
 public:
+  int pin;
   Alarm(const String& n, String* actions, String* states, int len);
+  void init(int p);
   void activate();
   void deactivate();
-  void playNote(int alarmPin);
 };
 
 class Light : public BridgeDevice {
@@ -65,6 +67,7 @@ public:
   
   Light(const String& n, String* states, int len);
   void init(int rPin, int yPin, int gPin);
+  void init(int rPin, int gPin);
   void turnRed();
   void turnGreen();
   void turnYellow();

@@ -76,6 +76,14 @@ bool BridgeDevice::isWorking() {
   return temp;
 }
 
+int BridgeDevice::getNumStates() {
+  int temp;
+  xSemaphoreTake(mutex, portMAX_DELAY);
+  temp = possSLen;
+  xSemaphoreGive(mutex);
+  return temp;
+}
+
 // ---------- Gate Implementation ----------
 Gate::Gate(const String& n, String* actions, String* states, int aLen, int sLen)
   : BridgeDevice(n, actions, states, aLen, sLen) {}
@@ -146,17 +154,22 @@ void Gate::init(int pin1, int pin2) {
 // ---------- Alarm Implementation ----------
 Alarm::Alarm(const String& n, String* actions, String* states, int len)
   : BridgeDevice(n, actions, states, len, len) {}
+void Alarm::init(int p) {
+  pin = p;
+  tog = false;
+  pinMode(pin, OUTPUT);
+  digitalWrite(pin, LOW);
+}
 void Alarm::activate() {
   setState(0);
   Serial.println("[Alarm] Alarm On");
+  digitalWrite(pin, HIGH);
 }
 void Alarm::deactivate() {
   setState(1);
   Serial.println("[Alarm] Alarm Off");
-}
-void Alarm::playNote(int alarmPin) {
-  digitalWrite(alarmPin, HIGH);
-  digitalWrite(alarmPin, LOW);
+  digitalWrite(pin, LOW);
+  
 }
 
 // ---------- Light Implementation ----------
@@ -169,6 +182,13 @@ void Light::init(int rPin, int yPin, int gPin) {
   
   pinMode(redPin, OUTPUT);
   pinMode(yellowPin, OUTPUT);
+  pinMode(greenPin, OUTPUT);
+}
+void Light::init(int rPin, int gPin) {
+  redPin = rPin;
+  greenPin = gPin;
+  
+  pinMode(redPin, OUTPUT);
   pinMode(greenPin, OUTPUT);
 }
 void Light::turnRed() {

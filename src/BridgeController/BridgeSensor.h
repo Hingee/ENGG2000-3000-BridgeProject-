@@ -27,13 +27,17 @@ public:
 
 class PIR : public BridgeSensor {
 protected:
-  boolean isTriggerd;
+  bool isTriggerd;
+  int state;
+  long lastReadingTime;
+  long lastTriggeredTime;
   
 public:
   PIR();
-  void setTriggerd(boolean t);
-  boolean isTriggered();
-//  int read();
+  bool isNotTriggeredForSec(int n);
+  void setTriggered(bool t);
+  bool isTriggered();
+  bool read(int pin);
 };
 
 #endif
