@@ -12,9 +12,9 @@
 #define BL_YELLOW 16 
 #define BL_GREEN 17
 
-//Traffic Lights
-#define TL_RED 4
-#define TL_GREEN 5
+//Pedestrian Lights
+#define PL_RED 4
+#define PL_GREEN 5
 
 //Servo
 #define SERVO_PIN_1 41  // GPIO13 for servo
@@ -76,33 +76,23 @@ enum BridgeState { OPENING,
 BridgeState state = IDLE_CLOSE;
 
 //Forward Declarations
-void IRAM_ATTR onPulse();
 void networkTask(void* parameter);
+void IRAM_ATTR onPulse();
 
 void setup() {
   Serial.begin(115200);
   delay(100);
 
-  bridgeSystem = new BridgeSystem();
-
-  ap.begin();
-  bridgeSystem->gates.init(SERVO_PIN_1, SERVO_PIN_2);
-  bridgeSystem->pedestrianLights.init(TL_RED, TL_GREEN);
-  bridgeSystem->boatLights.init(BL_RED, BL_YELLOW, BL_GREEN);
-  bridgeSystem->alarms.init(BUZZER_PIN);
-  bridgeSystem->mechanism.init(MOTOR_PIN_1, MOTOR_PIN_2, ENCODER_PIN);
-
-  //Encoder Interrupt
+  bridgeSystem = new BridgeSystem(SERVO_PIN_1, SERVO_PIN_2,
+                                  PL_RED, PL_GREEN,
+                                  BL_RED, BL_YELLOW, BL_GREEN,
+                                  BUZZER_PIN,
+                                  MOTOR_PIN_1, MOTOR_PIN_2, ENCODER_PIN,
+                                  PIR_PIN,
+                                  US_TRIG_PIN_F, US_ECHO_PIN_F,
+                                  US_TRIG_PIN_B, US_ECHO_PIN_B);
   attachInterrupt(digitalPinToInterrupt(ENCODER_PIN), onPulse, RISING);
-
-  //PIR
-  pinMode(PIR_PIN, INPUT);
-  
-  //Ultrasonic
-  pinMode(US_TRIG_PIN_F, OUTPUT);
-  pinMode(US_ECHO_PIN_F, INPUT);
-  pinMode(US_TRIG_PIN_B, OUTPUT);
-  pinMode(US_ECHO_PIN_B, INPUT);
+  ap.begin();
 
   //Start Network Task pinned to core 0
   xTaskCreatePinnedToCore(networkTask,
@@ -146,17 +136,13 @@ void loop() {
         break;
     }
 
-    if (bridgeSystem->override.isOn()) {
-      mode = MANUAL;
-    } else {
-      mode = AUTO;
-    }
-
     switch (mode) {
       case AUTO:
+        if (bridgeSystem->override.isOn()) mode = MANUAL;
         bridgeAuto();
         break;
       case MANUAL:
+        if (!bridgeSystem->override.isOn()) mode = AUTO;
         bridgeManual();
         break;
     }
@@ -166,8 +152,8 @@ void loop() {
 
 void bridgeAuto() {
   bool boatDetected = false;
-  int distA = bridgeSystem->ultra0.readUltrasonic(US_TRIG_PIN_F, US_ECHO_PIN_F);
-  int distB = bridgeSystem->ultra1.readUltrasonic(US_TRIG_PIN_B, US_ECHO_PIN_B);
+  int distA = bridgeSystem->ultraF.readUltrasonic();
+  int distB = bridgeSystem->ultraB.readUltrasonic();
   
   if ((distA > 0 && distA <= US_DIST_COND) || (distB > 0 && distB <= US_DIST_COND)) {
         boatDetected = true;
@@ -193,8 +179,8 @@ void bridgeAuto() {
       }
       break;
     case SAFETY_CHECK:
-      bridgeSystem->pir.read(PIR_PIN);
-      if (!bridgeSystem->pir.isNotTriggeredForSec(3)) {
+      bridgeSystem->pir.read();
+      if (bridgeSystem->pir.isNotTriggeredForSec(3)) {
         Serial.println("[AUTO]{SAFETY_CHECK} Clear of pedestrians");
         bridgeSystem->pedestrianLights.turnRed();
         bridgeSystem->mechanism.raiseNet();

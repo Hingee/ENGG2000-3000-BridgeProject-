@@ -17,10 +17,12 @@ public:
 class US : public BridgeSensor {
 protected:
   int distance;
+  int trigPin;
+  int echoPin;
 
 public:
-  US();
-  int readUltrasonic(int trigPin, int echoPin);
+  US(int tp, int ep);
+  int readUltrasonic();
   void updateDist(int d);
   int getDistance();
 };
@@ -31,13 +33,14 @@ protected:
   int state;
   long lastReadingTime;
   long lastTriggeredTime;
+  int pin;
   
 public:
-  PIR();
+  PIR(int p);
   bool isNotTriggeredForSec(int n);
   void setTriggered(bool t);
   bool isTriggered();
-  bool read(int pin);
+  bool read();
 };
 
 #endif

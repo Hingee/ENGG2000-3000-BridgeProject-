@@ -36,7 +36,7 @@ public:
   int gatePos;
   bool idle;
 
-  Gate(const String& n, String* actions, String* states,  int aLen, int sLen);
+  Gate(const String& n, String* actions, String* states,  int aLen, int sLen, int pin1, int pin2);
 
   void openNet();
   unsigned long openHard(unsigned long lastTime, int stepDelay);
@@ -46,15 +46,12 @@ public:
 
   unsigned long moveServoSmooth(int targetPos, unsigned long lastTime, int stepDelay);
   bool isIdle();
-
-  void init(int pin1, int pin2);
 };
 
 class Alarm : public BridgeDevice {
 public:
   int pin;
-  Alarm(const String& n, String* actions, String* states, int len);
-  void init(int p);
+  Alarm(const String& n, String* actions, String* states, int len, int p);
   void activate();
   void deactivate();
 };
@@ -65,9 +62,8 @@ public:
   int redPin;
   int yellowPin;
   
-  Light(const String& n, String* states, int len);
-  void init(int rPin, int yPin, int gPin);
-  void init(int rPin, int gPin);
+  Light(const String& n, String* states, int len, int rPin, int yPin, int gPin);
+  Light(const String& n, String* states, int len, int rPin, int gPin);
   void turnRed();
   void turnGreen();
   void turnYellow();
@@ -80,7 +76,7 @@ public:
   int motorDriverPin1;
   int motorDriverPin2;
 
-  BridgeMechanism(const String& n, String* actions, String* states,  int aLen, int sLen);
+  BridgeMechanism(const String& n, String* actions, String* states,  int aLen, int sLen, int mp1, int mp2, int encPin);
 
   void raiseNet();
   bool raiseHard();
@@ -92,8 +88,6 @@ public:
 
   void incRev(unsigned long p, int ppr);
   void decRev(unsigned long p, int ppr);
-
-  void init(int mp1, int mp2, int encPin);
 };
 
 //Fake device to implement a flip override

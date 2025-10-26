@@ -11,11 +11,16 @@ String BridgeSensor::getName() {
 }
 
 // ---------- Ultrasonic Implementation ----------
-US::US()
+US::US(int tp, int ep)
   : BridgeSensor("Ultra-Sonic") {
   distance = 0;
+  trigPin = tp;
+  echoPin = ep;
+
+  pinMode(trigPin, OUTPUT);
+  pinMode(ep, INPUT);
 }
-int US::readUltrasonic(int trigPin, int echoPin) {
+int US::readUltrasonic() {
   digitalWrite(trigPin, LOW);
   delayMicroseconds(2);
   digitalWrite(trigPin, HIGH);
@@ -46,10 +51,14 @@ int US::getDistance() {
 }
 
 // ---------- PIR Implementation ----------
-PIR::PIR()
+PIR::PIR(int p)
   : BridgeSensor("Passive Infrared Sensor") {
   isTriggerd = false;
   state = LOW;
+  pin = p;
+  pinMode(pin, INPUT);
+  lastTriggeredTime = millis();
+  lastReadingTime = millis();
 }
 void PIR::setTriggered(bool t) {
   xSemaphoreTake(mutex, portMAX_DELAY);
@@ -64,10 +73,11 @@ bool PIR::isTriggered() {
   return temp;
 }
 bool PIR::isNotTriggeredForSec(int n) {
+  Serial.println(millis() - lastTriggeredTime);
   if(!isTriggered() && (millis() - lastTriggeredTime > n*1000)) return true;
   return false;
 }
-bool PIR::read(int pin) {
+bool PIR::read() {
   if(millis() - lastReadingTime < 500 ) return isTriggered(); //Holds val for 0.5s
   
   lastReadingTime = millis();

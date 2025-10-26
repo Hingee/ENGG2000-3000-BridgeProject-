@@ -18,6 +18,10 @@ private:
   void renderFlipButton(WiFiClient& client, BridgeDevice& device);
   void renderTransFlipButton(WiFiClient& client, BridgeDevice& device, String jsonKey);
   void renderRadioButton(WiFiClient& client, BridgeDevice& device);
+
+  void sendHTMLHeader(WiFiClient& client);
+  void renderSensorSection(WiFiClient& client);
+  void sendJSONHeader(WiFiClient& client);
 };
 
 #endif

@@ -85,9 +85,16 @@ int BridgeDevice::getNumStates() {
 }
 
 // ---------- Gate Implementation ----------
-Gate::Gate(const String& n, String* actions, String* states, int aLen, int sLen)
-  : BridgeDevice(n, actions, states, aLen, sLen) {}
+Gate::Gate(const String& n, String* actions, String* states, int aLen, int sLen, int pin1, int pin2)
+  : BridgeDevice(n, actions, states, aLen, sLen) {
+  idle = true;
+  gatePos = 90;
+  servo1.attach(pin1, 900, 2000);
+  servo1.write(gatePos);
 
+  servo2.attach(pin2, 900, 2000);
+  servo2.write(gatePos);
+}
 void Gate::openNet() {
   setState(2);
   Serial.println("[Gate] Raising Gates");
@@ -103,7 +110,6 @@ unsigned long Gate::openHard(unsigned long lastTime, int stepDelay) {
 
   return moveServoSmooth(targetPos, lastTime, stepDelay);
 }
-
 void Gate::closeNet() {
   setState(3);
   Serial.println("[Gate] Lowering Gates");
@@ -119,7 +125,6 @@ unsigned long Gate::closeHard(unsigned long lastTime, int stepDelay) {
 
   return moveServoSmooth(targetPos, lastTime, stepDelay);
 }
-
 unsigned long Gate::moveServoSmooth(int targetPos, unsigned long lastTime, int stepDelay) {
   unsigned long now = millis();
   idle = false;
@@ -141,22 +146,11 @@ bool Gate::isIdle() {
   return idle;
 }
 
-void Gate::init(int pin1, int pin2) {
-  idle = true;
-  gatePos = 90;
-  servo1.attach(pin1, 900, 2000);
-  servo1.write(gatePos);
-
-  servo2.attach(pin2, 900, 2000);
-  servo2.write(gatePos);
-}
-
 // ---------- Alarm Implementation ----------
-Alarm::Alarm(const String& n, String* actions, String* states, int len)
-  : BridgeDevice(n, actions, states, len, len) {}
-void Alarm::init(int p) {
+Alarm::Alarm(const String& n, String* actions, String* states, int len, int p)
+  : BridgeDevice(n, actions, states, len, len) {
+    
   pin = p;
-  tog = false;
   pinMode(pin, OUTPUT);
   digitalWrite(pin, LOW);
 }
@@ -173,9 +167,9 @@ void Alarm::deactivate() {
 }
 
 // ---------- Light Implementation ----------
-Light::Light(const String& n, String* states, int len)
-  : BridgeDevice(n, states, states, len, len) {}
-void Light::init(int rPin, int yPin, int gPin) {
+Light::Light(const String& n, String* states, int len, int rPin, int yPin, int gPin)
+  : BridgeDevice(n, states, states, len, len) {
+
   redPin = rPin;
   yellowPin = yPin;
   greenPin = gPin;
@@ -184,7 +178,9 @@ void Light::init(int rPin, int yPin, int gPin) {
   pinMode(yellowPin, OUTPUT);
   pinMode(greenPin, OUTPUT);
 }
-void Light::init(int rPin, int gPin) {
+Light::Light(const String& n, String* states, int len, int rPin, int gPin)
+  : BridgeDevice(n, states, states, len, len) {
+
   redPin = rPin;
   greenPin = gPin;
   
@@ -223,10 +219,21 @@ void Light::turnYellow() {
 }
 
 // ---------- BridgeMechanism Implementation ----------
-BridgeMechanism::BridgeMechanism(const String& n, String* actions, String* states, int aLen, int sLen)
+BridgeMechanism::BridgeMechanism(const String& n, String* actions, String* states, int aLen, int sLen, int mp1, int mp2, int encPin)
   : BridgeDevice(n, actions, states, aLen, sLen) {
   revolutionsCurrent = 0.0;
   revolutionsToOpen = 50.0;
+
+  motorDriverPin1 = mp1;
+  motorDriverPin2 = mp2;
+
+  //Motor Setup
+  pinMode(motorDriverPin1, OUTPUT);
+  pinMode(motorDriverPin2, OUTPUT);
+  digitalWrite(motorDriverPin1, LOW);
+  digitalWrite(motorDriverPin2, LOW);
+
+  pinMode(encPin, INPUT_PULLUP);
 }
 
 void BridgeMechanism::raiseNet() {
@@ -274,7 +281,6 @@ bool BridgeMechanism::lowerHard() {
   digitalWrite(motorDriverPin2, HIGH);
   return false;
 }
-
 void BridgeMechanism::haltMotor() {
   Serial.println("[Mechanism] Motor Idle.");
   digitalWrite(motorDriverPin1, LOW);
@@ -287,18 +293,6 @@ void BridgeMechanism::incRev(unsigned long p, int ppr) {
 void BridgeMechanism::decRev(unsigned long p, int ppr) {
   //  revolutionsCurrent -= (float) p / ppr;
   revolutionsCurrent--;
-}
-void BridgeMechanism::init(int mp1, int mp2, int encPin) {
-  motorDriverPin1 = mp1;
-  motorDriverPin2 = mp2;
-
-  //Motor Setup
-  pinMode(motorDriverPin1, OUTPUT);
-  pinMode(motorDriverPin2, OUTPUT);
-  digitalWrite(motorDriverPin1, LOW);
-  digitalWrite(motorDriverPin2, LOW);
-
-  pinMode(encPin, INPUT_PULLUP);
 }
 
 // ---------- Override Implementation ----------
