@@ -17,23 +17,30 @@ public:
 class US : public BridgeSensor {
 protected:
   int distance;
+  int trigPin;
+  int echoPin;
 
 public:
-  US();
-  int readUltrasonic(int trigPin, int echoPin);
+  US(int tp, int ep);
+  int readUltrasonic();
   void updateDist(int d);
   int getDistance();
 };
 
 class PIR : public BridgeSensor {
 protected:
-  boolean isTriggerd;
+  bool isTriggerd;
+  int state;
+  long lastReadingTime;
+  long lastTriggeredTime;
+  int pin;
   
 public:
-  PIR();
-  void setTriggerd(boolean t);
-  boolean isTriggered();
-//  int read();
+  PIR(int p);
+  bool isNotTriggeredForSec(int n);
+  void setTriggered(bool t);
+  bool isTriggered();
+  bool read();
 };
 
 #endif
