@@ -7,12 +7,12 @@ int runType = 0;
     //2 = Run continuously anticlockwise
 
 //Motor specific
-static int motorDriverPin1 = 27; 
-static int motorDriverPin2 = 26; 
+static int motorDriverPin1 = 25; 
+static int motorDriverPin2 = 33; 
 float totalRotations = 0.0; 
 
 //Encoder
-const int encoderPinA = 34;
+const int encoderPinA = 26;
 volatile unsigned long pulseCount = 0;
 const int pulsesPerRevolution = 700;
 
@@ -36,6 +36,7 @@ void setup() {
 }
 
 void loop() {
+
     if (runType == 0) {
         Serial.println("Begin Synchronization");
         syncCheck();
@@ -53,6 +54,10 @@ void loop() {
 void syncCheck() {
     long prevAlt = 0;
     int endTime = 5000;
+
+    //Ensure program doesn't run instantly upon power.
+    Serial.println("NOTICE: Motor will start in 5 seconds.");
+    delay(5000);
 
     //infinite loop
     while(true) {
@@ -131,10 +136,6 @@ void runMotorAntiClockwise() {
         float revolutions = (float) pulses / pulsesPerRevolution;
         float rpm = revolutions * 60.0;
         totalRotations += revolutions; 
-    //    Serial.print("Live RPM: ");
-    //    Serial.print(rpm, 2);
-    //    Serial.print("Revs Since Last Pulse: ");
-    //    Serial.println(revolutions, 2);
         prev = millis();  
     }
 }
