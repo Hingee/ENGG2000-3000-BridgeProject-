@@ -8,31 +8,31 @@
 
 // ------------------ Pin Configuration (change as needed) ------------------
 //Boat Lights
-#define BL_RED 15 
+#define BL_RED 15
 #define BL_YELLOW 2
 #define BL_GREEN 4
 
 //Pedestrian Lights
-#define PL_RED 21 
+#define PL_RED 21
 #define PL_GREEN 22
 
 //Servo
 #define SERVO_PIN_1 17  // GPIO13 for servo
-#define SERVO_PIN_2 5  // GPIO12 for servo
+#define SERVO_PIN_2 5   // GPIO12 for servo
 
 // Ultrasonic Front
 #define US_TRIG_PIN_F 13
 #define US_ECHO_PIN_F 12
-#define US_DIST_COND 20 
+#define US_DIST_COND 20
 
 // Ultrasonic Back
 #define US_TRIG_PIN_B 14
-#define US_ECHO_PIN_B 27 // 27 will give s3 errors
+#define US_ECHO_PIN_B 27  // 27 will give s3 errors
 
 //Motor
-#define MOTOR_PIN_1 25 
-#define MOTOR_PIN_2 33  
-#define ENCODER_PIN 26      //Chose an interruptable pin
+#define MOTOR_PIN_1 25
+#define MOTOR_PIN_2 33
+#define ENCODER_PIN 26  //Chose an interruptable pin
 #define PULSES_PER_REV 700
 
 #define BUZZER_PIN 35
@@ -115,7 +115,7 @@ void networkTask(void* parameter) {
 }
 
 void loop() {
-  if (millis() - lastRefresh >= refreshInterval) {    
+  if (millis() - lastRefresh >= refreshInterval) {
     lastRefresh = millis();
 
     // Read encoder pulses atomically
@@ -154,10 +154,10 @@ void bridgeAuto() {
   bool boatDetected = false;
   int distA = bridgeSystem->ultraF.readUltrasonic();
   int distB = bridgeSystem->ultraB.readUltrasonic();
-  
+
   if ((distA > 0 && distA <= US_DIST_COND) || (distB > 0 && distB <= US_DIST_COND)) {
-        boatDetected = true;
-        timeDetected = millis();
+    boatDetected = true;
+    timeDetected = millis();
   }
   switch (state) {
     case IDLE_CLOSE:

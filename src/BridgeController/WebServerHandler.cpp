@@ -2,11 +2,11 @@
 
 void WebServerHandler::handleClient(WiFiClient& client, BridgeSystem& system) {
   if (!client) return;
-  
+
   header = "";
   unsigned long timeout = millis();
 
-  //Read request until new line 
+  //Read request until new line
   //WARNING: ONLY WORKS FOR SMALL PACKETS but makes it way faster
   while (client.connected() && millis() - timeout < 2000) {
     if (client.available()) {
@@ -27,7 +27,7 @@ void WebServerHandler::handleClient(WiFiClient& client, BridgeSystem& system) {
 
 // ------------------------------ Responses ------------------------------
 void WebServerHandler::sendResponse(WiFiClient& client, BridgeSystem& system) {
-  system.execute(header); //Execute command
+  system.execute(header);  //Execute command
   sendHTMLHeader(client);
 
   // Web Page Heading
@@ -53,9 +53,9 @@ void WebServerHandler::sendSensorData(WiFiClient& client, BridgeSystem& system) 
 
   int ultraFint = system.ultraF.getDistance();
   int ultraBint = system.ultraB.getDistance();
-  
-  String ultraFstr = (-1 == ultraFint) ? "No Echo" : String(ultraFint)+" cm";
-  String ultraBstr = (-1 == ultraBint) ? "No Echo" : String(ultraBint)+" cm";
+
+  String ultraFstr = (-1 == ultraFint) ? "No Echo" : String(ultraFint) + " cm";
+  String ultraBstr = (-1 == ultraBint) ? "No Echo" : String(ultraBint) + " cm";
 
   // JSON with sensor values
   String json = "{";
@@ -85,19 +85,19 @@ void WebServerHandler::renderFlipButton(WiFiClient& client, BridgeDevice& device
   String action = device.getAction();
 
   client.printf("<p>%s - State %s</p>\n", name.c_str(), device.getState().c_str());
-  client.printf("<p><a href=\"/%s/%s?ts=%lu\"><button class=\"button\">%s</button></a></p>\n", 
-                  name.c_str(), action.c_str(), millis(), action.c_str());
+  client.printf("<p><a href=\"/%s/%s?ts=%lu\"><button class=\"button\">%s</button></a></p>\n",
+                name.c_str(), action.c_str(), millis(), action.c_str());
 }
 
 void WebServerHandler::renderTransFlipButton(WiFiClient& client, BridgeDevice& device, String jsonKey) {
-  if(!device.isWorking()) {
-     renderFlipButton(client, device);
-     return;
+  if (!device.isWorking()) {
+    renderFlipButton(client, device);
+    return;
   }
-  
+
   String name = device.getName();
   String state = device.getState();
-  
+
   client.printf("<p>%s</p>\n", name.c_str());
 
   // Show temporary Transitioning message
@@ -130,7 +130,7 @@ void WebServerHandler::renderRadioButton(WiFiClient& client, BridgeDevice& devic
     String stateName = device.getAction(i);
     String buttonClass = (i == currState) ? "button" : "button2";
 
-    client.printf("<a href=\"/%s/%s?ts=%lu\"><button class=\"%s radio\">%s</button></a>\n", 
+    client.printf("<a href=\"/%s/%s?ts=%lu\"><button class=\"%s radio\">%s</button></a>\n",
                   name.c_str(), stateName.c_str(), millis(), buttonClass.c_str(), stateName.c_str());
   }
   client.println("<br>");
@@ -162,24 +162,24 @@ void WebServerHandler::sendHTMLHeader(WiFiClient& client) {
   client.println("</style></head>");
 }
 void WebServerHandler::renderSensorSection(WiFiClient& client) {
-    client.println("<h3>Sensor Readings</h3>");
-    client.println("<div id='sensorData'>Loading...</div>");
-    
-    //JavaScript Sensor display
-    client.println("<script>");
-    client.println("function updateSensors() {");
-    client.println("    fetch('/sensor')");
-    client.println("    .then(response => response.json())");
-    client.println("    .then(data => {");
-    client.println("        document.getElementById('sensorData').innerHTML = ");
-    client.println("            'Ultrasonic_Front: ' + data.ultrasonicF + ' <br>' +");
-    client.println("            'Ultrasonic_Back: ' + data.ultrasonicB + ' <br>' +");
-    client.println("            'PIR: ' + (data.pir ? 'Motion Detected' : 'No Motion');");
-    client.println("    });");
-    client.println("}");
-    client.println("setInterval(updateSensors, 500);");
-    client.println("updateSensors();");
-    client.println("</script>");
+  client.println("<h3>Sensor Readings</h3>");
+  client.println("<div id='sensorData'>Loading...</div>");
+
+  //JavaScript Sensor display
+  client.println("<script>");
+  client.println("function updateSensors() {");
+  client.println("    fetch('/sensor')");
+  client.println("    .then(response => response.json())");
+  client.println("    .then(data => {");
+  client.println("        document.getElementById('sensorData').innerHTML = ");
+  client.println("            'Ultrasonic_Front: ' + data.ultrasonicF + ' <br>' +");
+  client.println("            'Ultrasonic_Back: ' + data.ultrasonicB + ' <br>' +");
+  client.println("            'PIR: ' + (data.pir ? 'Motion Detected' : 'No Motion');");
+  client.println("    });");
+  client.println("}");
+  client.println("setInterval(updateSensors, 500);");
+  client.println("updateSensors();");
+  client.println("</script>");
 }
 void WebServerHandler::sendJSONHeader(WiFiClient& client) {
   // Response header

@@ -4,26 +4,26 @@ static String mechStates[] = { "Raised", "Lowered", "Raising", "Lowering" };
 static String overrideStates[] = { "Off", "On" };
 static String overrideActions[] = { "On", "Off" };
 static String boatLightStates[] = { "Red", "Green", "Yellow" };
-static String pedLightStates[] = { "Red", "Green"};
+static String pedLightStates[] = { "Red", "Green" };
 static String alarmStates[] = { "On", "Off" };
 static String alarmActions[] = { "Off", "On" };
 static String gateActions[] = { "Lower", "Raise" };
 static String gateStates[] = { "Raised", "Lowered", "Raising", "Lowering" };
 
 BridgeSystem::BridgeSystem(int servoPin1, int servoPin2,
-              int pl_redPin, int pl_greenPin,
-              int bl_redPin, int bl_yellowPin, int bl_greenPin,
-              int alarmPin,
-              int motorPin1, int motorPin2, int encoderPin,
-              int pirPin,
-              int us_trigPinF, int us_echoPinF,
-              int us_trigPinB, int us_echoPinB)
-              
-  : gates("Gates", gateActions, gateStates, 2,4, servoPin1, servoPin2),
+                           int pl_redPin, int pl_greenPin,
+                           int bl_redPin, int bl_yellowPin, int bl_greenPin,
+                           int alarmPin,
+                           int motorPin1, int motorPin2, int encoderPin,
+                           int pirPin,
+                           int us_trigPinF, int us_echoPinF,
+                           int us_trigPinB, int us_echoPinB)
+
+  : gates("Gates", gateActions, gateStates, 2, 4, servoPin1, servoPin2),
     alarms("Alarms", alarmActions, alarmStates, 2, alarmPin),
     pedestrianLights("PedestrianLights", pedLightStates, 2, pl_redPin, pl_greenPin),
     boatLights("BoatLights", boatLightStates, 3, bl_redPin, bl_yellowPin, bl_greenPin),
-    mechanism("Bridge_Mechanism", mechActions, mechStates, 2,4, motorPin1, motorPin2, encoderPin),
+    mechanism("Bridge_Mechanism", mechActions, mechStates, 2, 4, motorPin1, motorPin2, encoderPin),
     override("Override", overrideActions, overrideStates, 2),
     ultraF(us_trigPinF, us_echoPinF), ultraB(us_trigPinB, us_echoPinB), pir(pirPin) {}
 

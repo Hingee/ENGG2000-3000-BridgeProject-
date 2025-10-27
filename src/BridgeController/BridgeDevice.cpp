@@ -149,7 +149,7 @@ bool Gate::isIdle() {
 // ---------- Alarm Implementation ----------
 Alarm::Alarm(const String& n, String* actions, String* states, int len, int p)
   : BridgeDevice(n, actions, states, len, len) {
-    
+
   pin = p;
   pinMode(pin, OUTPUT);
   digitalWrite(pin, LOW);
@@ -163,7 +163,6 @@ void Alarm::deactivate() {
   setState(1);
   Serial.println("[Alarm] Alarm Off");
   digitalWrite(pin, LOW);
-  
 }
 
 // ---------- Light Implementation ----------
@@ -173,7 +172,7 @@ Light::Light(const String& n, String* states, int len, int rPin, int yPin, int g
   redPin = rPin;
   yellowPin = yPin;
   greenPin = gPin;
-  
+
   pinMode(redPin, OUTPUT);
   pinMode(yellowPin, OUTPUT);
   pinMode(greenPin, OUTPUT);
@@ -183,7 +182,7 @@ Light::Light(const String& n, String* states, int len, int rPin, int gPin)
 
   redPin = rPin;
   greenPin = gPin;
-  
+
   pinMode(redPin, OUTPUT);
   pinMode(greenPin, OUTPUT);
 }
@@ -192,7 +191,7 @@ void Light::turnRed() {
   digitalWrite(redPin, HIGH);
   digitalWrite(yellowPin, LOW);
   digitalWrite(greenPin, LOW);
-  
+
   Serial.print("[Light] ");
   Serial.print(name);
   Serial.println(" Red");
@@ -202,7 +201,7 @@ void Light::turnGreen() {
   digitalWrite(redPin, LOW);
   digitalWrite(yellowPin, LOW);
   digitalWrite(greenPin, HIGH);
-  
+
   Serial.print("[Light] ");
   Serial.print(name);
   Serial.println(" Green");
@@ -212,7 +211,7 @@ void Light::turnYellow() {
   digitalWrite(redPin, LOW);
   digitalWrite(yellowPin, HIGH);
   digitalWrite(greenPin, LOW);
-  
+
   Serial.print("[Light] ");
   Serial.print(name);
   Serial.println(" Yellow");

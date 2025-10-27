@@ -34,7 +34,7 @@ protected:
   long lastReadingTime;
   long lastTriggeredTime;
   int pin;
-  
+
 public:
   PIR(int p);
   bool isNotTriggeredForSec(int n);

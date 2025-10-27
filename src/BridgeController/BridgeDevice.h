@@ -36,7 +36,7 @@ public:
   int gatePos;
   bool idle;
 
-  Gate(const String& n, String* actions, String* states,  int aLen, int sLen, int pin1, int pin2);
+  Gate(const String& n, String* actions, String* states, int aLen, int sLen, int pin1, int pin2);
 
   void openNet();
   unsigned long openHard(unsigned long lastTime, int stepDelay);
@@ -61,7 +61,7 @@ public:
   int greenPin;
   int redPin;
   int yellowPin;
-  
+
   Light(const String& n, String* states, int len, int rPin, int yPin, int gPin);
   Light(const String& n, String* states, int len, int rPin, int gPin);
   void turnRed();
@@ -76,7 +76,7 @@ public:
   int motorDriverPin1;
   int motorDriverPin2;
 
-  BridgeMechanism(const String& n, String* actions, String* states,  int aLen, int sLen, int mp1, int mp2, int encPin);
+  BridgeMechanism(const String& n, String* actions, String* states, int aLen, int sLen, int mp1, int mp2, int encPin);
 
   void raiseNet();
   bool raiseHard();

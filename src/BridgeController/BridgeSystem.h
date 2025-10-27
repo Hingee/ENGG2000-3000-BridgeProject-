@@ -22,13 +22,13 @@ public:
   PIR pir;
 
   BridgeSystem(int servoPin1, int servoPin2,
-              int pl_redPin, int pl_greenPin,
-              int bl_redPin, int bl_yellowPin, int bl_greenPin,
-              int alarmPin,
-              int motorPin1, int motorPin2, int encoderPin,
-              int pirPin,
-              int us_trigPinF, int us_echoPinF,
-              int us_trigPinB, int us_echoPinB);
+               int pl_redPin, int pl_greenPin,
+               int bl_redPin, int bl_yellowPin, int bl_greenPin,
+               int alarmPin,
+               int motorPin1, int motorPin2, int encoderPin,
+               int pirPin,
+               int us_trigPinF, int us_echoPinF,
+               int us_trigPinB, int us_echoPinB);
 
   void execute(const String& cmd);
 };

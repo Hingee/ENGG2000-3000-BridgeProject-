@@ -74,21 +74,21 @@ bool PIR::isTriggered() {
 }
 bool PIR::isNotTriggeredForSec(int n) {
   Serial.println(millis() - lastTriggeredTime);
-  if(!isTriggered() && (millis() - lastTriggeredTime > n*1000)) return true;
+  if (!isTriggered() && (millis() - lastTriggeredTime > n * 1000)) return true;
   return false;
 }
 bool PIR::read() {
-  if(millis() - lastReadingTime < 500 ) return isTriggered(); //Holds val for 0.5s
-  
+  if (millis() - lastReadingTime < 500) return isTriggered();  //Holds val for 0.5s
+
   lastReadingTime = millis();
   int val = digitalRead(pin);  // read input value
-  
-  if(val == HIGH && state == LOW) { //Motion Detected
+
+  if (val == HIGH && state == LOW) {  //Motion Detected
     state == HIGH;
     lastTriggeredTime = millis();
     setTriggered(true);
     return true;
-  }else if (state == HIGH) {
+  } else if (state == HIGH) {
     state = LOW;
   }
 
