@@ -149,7 +149,7 @@ bool Gate::isIdle() {
 // ---------- Alarm Implementation ----------
 Alarm::Alarm(const String& n, String* actions, String* states, int len, int p)
   : BridgeDevice(n, actions, states, len, len) {
-
+  setState(1);
   pin = p;
   pinMode(pin, OUTPUT);
   digitalWrite(pin, LOW);

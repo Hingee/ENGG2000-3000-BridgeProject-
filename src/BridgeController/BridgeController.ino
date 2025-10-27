@@ -13,8 +13,8 @@
 #define BL_GREEN 4
 
 //Pedestrian Lights
-#define PL_RED 21
-#define PL_GREEN 22
+#define PL_RED 20
+#define PL_GREEN 21
 
 //Servo
 #define SERVO_PIN_1 17  // GPIO13 for servo
@@ -27,7 +27,7 @@
 
 // Ultrasonic Back
 #define US_TRIG_PIN_B 14
-#define US_ECHO_PIN_B 27  // 27 will give s3 errors
+#define US_ECHO_PIN_B 41  // 27 will give s3 errors
 
 //Motor
 #define MOTOR_PIN_1 25
@@ -103,6 +103,8 @@ void setup() {
                           NULL,
                           0  //core 0
   );
+  bridgeSystem->pedestrianLights.turnGreen();
+  bridgeSystem->boatLights.turnRed();
 }
 
 //Network Loop Task
@@ -152,10 +154,11 @@ void loop() {
 
 void bridgeAuto() {
   bool boatDetected = false;
-  int distA = bridgeSystem->ultraF.readUltrasonic();
+  int distF = bridgeSystem->ultraF.readUltrasonic();
   int distB = bridgeSystem->ultraB.readUltrasonic();
+  bridgeSystem->pir.read();
 
-  if ((distA > 0 && distA <= US_DIST_COND) || (distB > 0 && distB <= US_DIST_COND)) {
+  if ((distF > 0 && distF <= US_DIST_COND) || (distB > 0 && distB <= US_DIST_COND)) {
     boatDetected = true;
     timeDetected = millis();
   }
@@ -164,7 +167,7 @@ void bridgeAuto() {
       //Has boat arrived
       if (boatDetected) {
         Serial.println("[AUTO]{IDLE_CLOSE} Begin Bridge Safety Check");
-        bridgeSystem->pedestrianLights.turnYellow();
+        bridgeSystem->pedestrianLights.turnRed();
         bridgeSystem->gates.closeNet();
         bridgeSystem->alarms.activate();
         state = PEDESTRIAN_GATE_CLOSE;
@@ -179,7 +182,6 @@ void bridgeAuto() {
       }
       break;
     case SAFETY_CHECK:
-      bridgeSystem->pir.read();
       if (bridgeSystem->pir.isNotTriggeredForSec(3)) {
         Serial.println("[AUTO]{SAFETY_CHECK} Clear of pedestrians");
         bridgeSystem->pedestrianLights.turnRed();
