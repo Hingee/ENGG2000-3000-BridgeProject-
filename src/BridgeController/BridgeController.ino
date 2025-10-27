@@ -13,8 +13,8 @@
 #define BL_GREEN 4
 
 //Pedestrian Lights
-#define PL_RED 20
-#define PL_GREEN 21
+#define PL_RED 21
+#define PL_GREEN 22
 
 //Servo
 #define SERVO_PIN_1 17  // GPIO13 for servo
@@ -27,7 +27,7 @@
 
 // Ultrasonic Back
 #define US_TRIG_PIN_B 14
-#define US_ECHO_PIN_B 41  // 27 will give s3 errors
+#define US_ECHO_PIN_B 27  // 27 will give s3 errors
 
 //Motor
 #define MOTOR_PIN_1 25
