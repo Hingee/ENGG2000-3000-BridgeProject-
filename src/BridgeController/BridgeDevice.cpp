@@ -286,12 +286,12 @@ void BridgeMechanism::haltMotor() {
   digitalWrite(motorDriverPin2, LOW);
 }
 void BridgeMechanism::incRev(unsigned long p, int ppr) {
-  //  revolutionsCurrent += (float) p / ppr;
-  revolutionsCurrent++;
+  revolutionsCurrent += (float) p / ppr;
+  //revolutionsCurrent++;
 }
 void BridgeMechanism::decRev(unsigned long p, int ppr) {
-  //  revolutionsCurrent -= (float) p / ppr;
-  revolutionsCurrent--;
+  revolutionsCurrent -= (float) p / ppr;
+  //revolutionsCurrent--;
 }
 
 // ---------- Override Implementation ----------
