@@ -186,7 +186,7 @@ void bridgeAuto() {
       }
       break;
     case SAFETY_CHECK:
-      if (bridgeSystem->pir.isNotTriggeredForSec(3)) {
+      if (bridgeSystem->pir.isNotTriggeredForSec(10)) {
         Serial.println("[AUTO]{SAFETY_CHECK} Clear of pedestrians");
         bridgeSystem->pedestrianLights.turnRed();
         bridgeSystem->mechanism.raiseNet();
