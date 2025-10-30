@@ -88,7 +88,7 @@ int BridgeDevice::getNumStates() {
 Gate::Gate(const String& n, String* actions, String* states, int aLen, int sLen, int pin1, int pin2)
   : BridgeDevice(n, actions, states, aLen, sLen) {
   idle = true;
-  gatePos = 90;
+  gatePos = 85;
   servo1.attach(pin1, 900, 2000);
   servo1.write(gatePos);
 
@@ -100,7 +100,7 @@ void Gate::openNet() {
   Serial.println("[Gate] Raising Gates");
 }
 unsigned long Gate::openHard(unsigned long lastTime, int stepDelay) {
-  const int targetPos = 90;
+  const int targetPos = 175;
   if (gatePos == targetPos) {
     setState(0);
     Serial.println("[Gate] Raised Gates");
@@ -115,7 +115,7 @@ void Gate::closeNet() {
   Serial.println("[Gate] Lowering Gates");
 }
 unsigned long Gate::closeHard(unsigned long lastTime, int stepDelay) {
-  const int targetPos = 0;
+  const int targetPos = 85;
   if (gatePos == targetPos) {
     setState(1);
     Serial.println("[Gate] Lowered Gates");

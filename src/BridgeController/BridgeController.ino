@@ -8,12 +8,12 @@
 
 // ------------------ Pin Configuration (change as needed) ------------------
 //Boat Lights
-#define BL_RED 15
+#define BL_RED 4
 #define BL_YELLOW 2
-#define BL_GREEN 4
+#define BL_GREEN 15
 
 //Pedestrian Lights
-#define PL_RED 21
+#define PL_RED 23
 #define PL_GREEN 22
 
 //Servo
@@ -35,7 +35,7 @@
 #define ENCODER_PIN 26  //Chose an interruptable pin
 #define PULSES_PER_REV 700
 
-#define BUZZER_PIN 35
+#define BUZZER_PIN 21
 #define PIR_PIN 19
 
 //Network & System
@@ -78,6 +78,10 @@ BridgeState state = IDLE_CLOSE;
 //Forward Declarations
 void networkTask(void* parameter);
 void IRAM_ATTR onPulse();
+bool gateOpen();
+bool gateClose();
+void bridgeAuto();
+void bridgeManual();
 
 void setup() {
   Serial.begin(115200);
