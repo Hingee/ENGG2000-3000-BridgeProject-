@@ -199,6 +199,7 @@ void bridgeAuto() {
         postOpenSensorDelay = true;
         bridgeSystem->alarms.deactivate();
         state = IDLE_OPEN;
+        timeDetected = millis();
       }
       break;
     case IDLE_OPEN:
