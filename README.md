@@ -1,7 +1,7 @@
 # Automated Scale Model Bridge Control System
 
 ## Project Overview
-This repository contains the design, firmware, and systems engineering documentation for an automated scale model bridge. Developed as part of the **ENGG2000/3000** Vertically Integrated Project at Macquarie University, this system (Systems 12) coordinates road, pedestrian, and marine traffic through a synchronized network of sensors and actuators controlled by an ESP32.
+This repository contains the design, firmware, and systems engineering documentation for an automated scale model bridge. This system coordinates road, pedestrian, and marine traffic through a synchronized network of sensors and actuators controlled by an ESP32.
 
 The project emphasizes a **Systems Engineering** approach to ensure safety, reliability, and real-time responsiveness in an infrastructure model.
 
