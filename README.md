@@ -19,12 +19,3 @@ The project emphasizes a **Systems Engineering** approach to ensure safety, reli
 * **Actuators:** 12V 251RPM DC Geared Motors, Continuous Rotation Servos.
 * **Power Management:** 12V 5A battery source with step-up/down converters for 5V/3.3V logic.
 * **Safety Systems:** Fail-safe default states and synchronized audio-visual warnings.
-
-## The Systems 12 Team
-* **Nathan Hingee (ENGG3000)** - Lead Software Engineer
-* **James Lin (ENGG3000)** - Lead Electrical Engineer
-* **Arnav Kapadia (ENGG3000)** - Mechatronic Engineer
-* **Joseph Fraietta (ENGG2000)** - Electrical Engineer
-* **Sandipan Mallick Nibir (ENGG2000)** - Software Engineer
-* **Elijah Johnson (ENGG2000)** - Software Engineer
-* **Nathan Jones (ENGG2000)** - Software Engineer
